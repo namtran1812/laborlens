@@ -6,6 +6,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     fred_api_key: str = ""
 
+    laborlens_demo_mode: bool = False
+    laborlens_cors_origins: str = "http://localhost:3000"
+
     laborlens_llm_provider: str = "ollama"
     laborlens_model: str = "qwen3:8b"
     ollama_host: str = "http://localhost:11434"

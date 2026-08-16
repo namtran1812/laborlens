@@ -13,4 +13,5 @@ def test_health() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "laborlens",
+        "mode": "research",
     }

@@ -7,6 +7,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from laborlens.analysis.regime import DEFAULT_SPECS
+from laborlens.api.demo import (
+    demo_article,
+    demo_episode_detail,
+    demo_episodes,
+    demo_replay,
+)
 from laborlens.config import get_settings
 from laborlens.evaluation.replay import evaluate_replay
 from laborlens.services.research_pipeline import ResearchPipeline
@@ -19,11 +25,15 @@ app = FastAPI(
     version="0.1.0",
 )
 
+settings = get_settings()
+
+cors_origins = [
+    value.strip() for value in settings.laborlens_cors_origins.split(",") if value.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET"],
     allow_headers=["*"],
@@ -40,6 +50,7 @@ def health() -> dict[str, str]:
     return {
         "status": "ok",
         "service": "laborlens",
+        "mode": ("demo" if settings.laborlens_demo_mode else "research"),
     }
 
 
@@ -60,6 +71,9 @@ def episodes(
         Query(),
     ] = None,
 ) -> dict:
+    if settings.laborlens_demo_mode:
+        return demo_episodes()
+
     result = pipeline().discover_episodes(
         window=window,
         min_confidence=min_confidence,
@@ -102,6 +116,28 @@ def episode_detail(
         Query(),
     ] = None,
 ) -> dict:
+    if settings.laborlens_demo_mode:
+        result = demo_episode_detail(start_date)
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=("Episode is not included in the public demo dataset"),
+            )
+
+        return result
+
+    if settings.laborlens_demo_mode:
+        result = demo_article(start_date)
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=("Article is not included in the public demo dataset"),
+            )
+
+        return result
+
     try:
         bundle = pipeline().build(
             start_date=start_date,
@@ -231,7 +267,18 @@ def replay(
             detail=("'from' cannot be later than 'to'"),
         )
 
-    store = ClickHouseStore(get_settings())
+    if settings.laborlens_demo_mode:
+        result = demo_replay(target=target)
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=("Replay is not included in the public demo dataset"),
+            )
+
+        return result
+
+    store = ClickHouseStore(settings)
 
     research_pipeline = ResearchPipeline(store)
 
