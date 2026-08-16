@@ -1,143 +1,221 @@
 # LaborLens
 
-**Point-in-time labor-market intelligence from revision-aware economic data.**
+**Revision-aware, point-in-time labor-market intelligence.**
 
-LaborLens is an economic research engine that detects unusual labor-market regimes, constructs evidence-backed research claims, evaluates how those claims behave as economic data are released and revised, and produces deterministic, numerically verified research summaries.
+LaborLens is a full-stack economic research system for detecting labor-market regimes, grounding them in structured evidence, reconstructing what was knowable at historical information dates, and measuring how conclusions change as official economic data are released and revised.
 
-The central question is not simply:
+**Live demo:** https://laborlens-eosin.vercel.app
 
-> What does the labor market look like in the final revised dataset?
-
-It is:
-
-> **What could an analyst actually have concluded using only the information available at that point in time, and would that conclusion survive later revisions?**
-
-LaborLens combines FRED/ALFRED economic data, ClickHouse, statistical regime detection, evidence and skeptic layers, point-in-time replay, anti-survivorship backtesting, and deterministic article generation into a reproducible research pipeline.
+**Public API:** https://laborlens.onrender.com
 
 ---
 
 ## Why LaborLens?
 
-Economic data are revised.
+Most historical economic analysis quietly benefits from hindsight.
 
-A model evaluated against today's historical dataset can accidentally use information that was unavailable when the event occurred. This creates a form of **look-ahead bias**.
+Official data such as payroll employment, unemployment, job openings, hires, and unemployment claims are released over time and may later be revised. If a model is evaluated only against today's final dataset, it can accidentally use information that was unavailable when the event actually occurred.
 
-For example, a payroll observation for June may have:
+LaborLens asks a stricter question:
 
-- an initial release,
-- subsequent revisions,
-- benchmark revisions,
-- and a different value in today's dataset.
+> **What could an analyst have concluded using only the information available at that point in time, and would that conclusion survive subsequent revisions?**
 
-A conventional historical analysis may unknowingly reason from the final value.
+Instead of treating revisions as noise to discard, LaborLens models them explicitly.
 
-LaborLens instead stores economic observations together with their real-time validity intervals:
+Each observation can be represented by:
 
 ```text
+series_id
 observation_date
 value
 realtime_start
 realtime_end
 ```
 
-This makes it possible to reconstruct the information set available on a historical date and ask:
+This enables historical reconstruction of the information set that existed on any supported `as_of` date.
+
+---
+
+## Live Demo
+
+The hosted application provides a zero-cost public demonstration of the research system.
+
+### Frontend
+
+https://laborlens-eosin.vercel.app
+
+Built with:
 
 ```text
-What would LaborLens have detected then?
+Next.js
+React
+TypeScript
+Tailwind CSS
+Vercel
 ```
 
-rather than:
+### API
+
+https://laborlens.onrender.com
+
+Built with:
 
 ```text
-What does the fully revised dataset tell us now?
+FastAPI
+Python
+Uvicorn
+Render
 ```
+
+### Public demo mode
+
+The hosted backend intentionally serves a **frozen, validated historical research snapshot** rather than requiring a persistent hosted ClickHouse cluster.
+
+This keeps the public demo free while preserving the full research architecture in the repository.
+
+The public demo includes:
+
+- episode discovery
+- evidence attribution
+- skeptic validation
+- historical episode inspection
+- deterministic research summaries
+- point-in-time release replay
+- detection latency
+- score revision
+- revision stability
+- release attribution
+
+The full local system additionally supports:
+
+- FRED/ALFRED ingestion
+- revision-aware historical backfills
+- ClickHouse vintage storage
+- arbitrary point-in-time reconstruction
+- historical regime discovery
+- release-aware replay evaluation
+- anti-survivorship backtesting
+- sensitivity analysis
 
 ---
 
 ## Architecture
 
+### Public deployment
+
 ```text
-                         FRED / ALFRED
-                              │
-                              │ releases + revisions
-                              ▼
-                    ┌───────────────────┐
-                    │   Ingestion Layer │
-                    │                   │
-                    │ FRED client       │
-                    │ vintage backfill  │
-                    └─────────┬─────────┘
-                              │
-                              ▼
-                    ┌───────────────────┐
-                    │    ClickHouse     │
-                    │                   │
-                    │ observations      │
-                    │ real-time ranges  │
-                    │ vintage history   │
-                    └─────────┬─────────┘
-                              │
-                 ┌────────────┴────────────┐
-                 │                         │
-                 ▼                         ▼
-       ┌──────────────────┐      ┌──────────────────┐
-       │ Latest Snapshot  │      │ Point-in-Time    │
-       │ Analysis         │      │ Reconstruction   │
-       └────────┬─────────┘      └────────┬─────────┘
-                │                         │
-                └────────────┬────────────┘
-                             ▼
-                  ┌─────────────────────┐
-                  │ Statistical Engine  │
-                  │                     │
-                  │ normalization       │
-                  │ directional signals │
-                  │ regime scoring      │
-                  │ smoothing           │
-                  │ divergence          │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │ Research Pipeline   │
-                  │                     │
-                  │ claims              │
-                  │ episode clustering  │
-                  │ evidence ranking    │
-                  │ skeptic review      │
-                  │ historical context  │
-                  │ provenance          │
-                  └───────┬─────────────┘
-                          │
-             ┌────────────┴─────────────┐
-             │                          │
-             ▼                          ▼
-   ┌───────────────────┐      ┌────────────────────┐
-   │ Grounded Writer   │      │ Evaluation Engine  │
-   │                   │      │                    │
-   │ deterministic     │      │ release replay     │
-   │ numerical verify  │      │ revision metrics   │
-   │ research article  │      │ backtesting        │
-   └───────────────────┘      │ anti-survivorship  │
-                              └────────────────────┘
+┌──────────────────────────────────────────┐
+│                 Vercel                   │
+│                                          │
+│        Next.js + TypeScript UI           │
+│                                          │
+│   laborlens-eosin.vercel.app             │
+└────────────────────┬─────────────────────┘
+                     │
+                     │ HTTPS / JSON
+                     ▼
+┌──────────────────────────────────────────┐
+│                 Render                   │
+│                                          │
+│            FastAPI Backend               │
+│                                          │
+│        laborlens.onrender.com            │
+└────────────────────┬─────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────┐
+│       Validated Historical Snapshot      │
+│                                          │
+│ Episodes                                 │
+│ Evidence                                 │
+│ Replay states                            │
+│ Revision metrics                         │
+│ Research article                         │
+└──────────────────────────────────────────┘
+```
+
+### Full research architecture
+
+```text
+                       FRED / ALFRED
+                            │
+                            │ releases + revisions
+                            ▼
+                 ┌────────────────────┐
+                 │   Ingestion Layer  │
+                 │                    │
+                 │ FRED client        │
+                 │ vintage discovery  │
+                 │ vintage backfill   │
+                 └─────────┬──────────┘
+                           │
+                           ▼
+                 ┌────────────────────┐
+                 │     ClickHouse     │
+                 │                    │
+                 │ observations       │
+                 │ vintage intervals  │
+                 │ release history    │
+                 └─────────┬──────────┘
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+              ▼                         ▼
+     latest information set     historical as-of state
+              │                         │
+              └────────────┬────────────┘
+                           ▼
+                 ┌────────────────────┐
+                 │ Statistical Engine │
+                 │                    │
+                 │ features           │
+                 │ normalization      │
+                 │ direction alignment│
+                 │ regime score       │
+                 │ smoothing          │
+                 │ divergence         │
+                 └─────────┬──────────┘
+                           │
+                           ▼
+                 ┌────────────────────┐
+                 │ Research Pipeline  │
+                 │                    │
+                 │ claim discovery    │
+                 │ episode clustering │
+                 │ evidence ranking   │
+                 │ skeptic review     │
+                 │ historical context │
+                 │ provenance         │
+                 └──────┬────────┬────┘
+                        │        │
+              ┌─────────┘        └──────────┐
+              ▼                             ▼
+   ┌────────────────────┐        ┌────────────────────┐
+   │ Grounded Writer    │        │ Evaluation Engine  │
+   │                    │        │                    │
+   │ deterministic text │        │ release replay     │
+   │ number verification│        │ revision metrics   │
+   │ provenance-aware   │        │ anti-survivorship  │
+   └────────────────────┘        │ backtesting        │
+                                 └────────────────────┘
 ```
 
 ---
 
-## Core Pipeline
+## Core Research Pipeline
 
-### 1. Revision-aware data ingestion
+### 1. FRED/ALFRED ingestion
 
-LaborLens retrieves economic series from FRED/ALFRED and stores both observations and their historical vintages.
+LaborLens retrieves economic series and stores both observations and their historical vintages.
 
 The ingestion layer supports:
 
-- current observations,
-- explicit historical vintages,
-- release-date discovery,
-- revision-aware vintage backfills.
-
-Release-aware backfilling uses actual FRED information dates instead of arbitrary calendar snapshots.
+```text
+current observations
+historical vintages
+release-date discovery
+revision-aware backfilling
+```
 
 Example:
 
@@ -150,13 +228,13 @@ laborlens backfill-vintages PAYEMS \
   --batch-size 100
 ```
 
-The same process can be applied to other indicators used by the regime model.
+Release-aware backfilling uses actual information dates reported by FRED rather than arbitrary calendar snapshots.
 
 ---
 
-### 2. Point-in-time reconstruction
+## Point-in-Time Reconstruction
 
-For a requested historical date `t`, LaborLens reconstructs the observations that were valid at `t`.
+For a historical date `t`, LaborLens reconstructs the values that were valid at that information state.
 
 Conceptually:
 
@@ -165,49 +243,27 @@ realtime_start <= t
 AND realtime_end >= t
 ```
 
-with the appropriate vintage selected for each observation date.
+For each observation date, the appropriate historical vintage is selected.
 
-This provides the foundation for genuine historical replay.
-
-For example:
+This allows:
 
 ```bash
 laborlens article \
   --start 2024-06-01 \
-  --as-of 2024-09-01 \
-  --window 24 \
-  --min-confidence 0.55
+  --as-of 2024-09-01
 ```
 
-The resulting research pipeline only uses information available by the specified `--as-of` date.
+to behave differently from an analysis using today's revised information.
+
+That distinction is central to LaborLens.
 
 ---
 
-### 3. Statistical regime detection
+## Signal Universe
 
-LaborLens transforms heterogeneous labor-market indicators into comparable directional signals.
+The current labor-market model includes:
 
-The analysis pipeline includes:
-
-```text
-raw observations
-      ↓
-feature construction
-      ↓
-rolling normalization
-      ↓
-direction alignment
-      ↓
-cross-series composite
-      ↓
-temporal smoothing
-      ↓
-regime classification
-```
-
-The current labor-market signal set includes indicators such as:
-
-| Series | Interpretation |
+| Series | Meaning |
 |---|---|
 | `PAYEMS` | Total nonfarm payroll employment |
 | `UNRATE` | Unemployment rate |
@@ -215,50 +271,109 @@ The current labor-market signal set includes indicators such as:
 | `JTSHIR` | Hires rate |
 | `JTSJOL` | Job openings level |
 
-Indicators are directionally aligned before aggregation so that movements can contribute consistently to expansion or contraction regimes.
+The indicators have different economic interpretations and units, so LaborLens transforms them into comparable standardized directional signals before aggregation.
 
 ---
 
-### 4. Claim and episode construction
+## Regime Detection
 
-Individual regime observations are transformed into research claims.
-
-Adjacent compatible claims are clustered into **episodes**, allowing LaborLens to reason about persistent labor-market regimes rather than isolated monthly observations.
-
-An episode records information such as:
+The regime pipeline is:
 
 ```text
-start date
-end date
-claim type
-representative score
-peak confidence
+raw observations
+      │
+      ▼
+feature construction
+      │
+      ▼
+rolling normalization
+      │
+      ▼
+direction alignment
+      │
+      ▼
+cross-series composite
+      │
+      ▼
+temporal smoothing
+      │
+      ▼
+dispersion / breadth
+      │
+      ▼
+regime classification
 ```
 
-Example claim:
+Possible research claims include:
 
 ```text
-Labor-market indicators are weakening broadly
+broad_contraction
+broad_expansion
+signal_divergence
+```
+
+A low-coverage state is prevented from becoming a strong research claim.
+
+---
+
+## Claims and Episodes
+
+LaborLens first detects candidate claims at individual observation dates.
+
+Adjacent compatible claims are then clustered into **episodes**.
+
+An episode contains information such as:
+
+```text
+episode_id
+claim_type
+start_date
+end_date
+duration_months
+peak_confidence
+representative observation
+```
+
+This makes the system reason about persistent economic regimes rather than disconnected monthly anomalies.
+
+---
+
+## Evidence Layer
+
+A regime detection does not automatically become a publishable conclusion.
+
+For each episode, LaborLens constructs an evidence bundle containing:
+
+```text
+supporting indicators
+opposing indicators
+standardized contributions
+breadth
+dispersion
+coverage
+confidence
+historical context
+provenance
+```
+
+For a contraction episode, negative aligned contributions count as supporting evidence.
+
+Example:
+
+```text
+PAYEMS   -0.85
+UNRATE   -0.66
+ICSA     -0.62
+JTSHIR   -0.33
 ```
 
 ---
 
-### 5. Evidence and skeptic layers
+## Deterministic Skeptic
 
-A detected regime is not automatically treated as a publishable conclusion.
+After evidence construction, a second deterministic layer evaluates whether the proposed claim is actually supported.
 
-LaborLens constructs an evidence bundle containing:
-
-- supporting indicators,
-- opposing indicators,
-- standardized contributions,
-- historical comparisons,
-- provenance,
-- regime statistics.
-
-A deterministic skeptic then evaluates whether the evidence actually supports the proposed claim.
-
-This separates:
+This deliberately separates:
 
 ```text
 signal detection
@@ -267,65 +382,60 @@ signal detection
 from:
 
 ```text
-research conclusion
+research interpretation
 ```
 
-and prevents the writer from independently deciding what the data mean.
+A detected statistical pattern therefore does not automatically become a narrative conclusion.
 
 ---
 
-## Deterministic Grounded Writing
+## Grounded Research Writer
 
-The default article writer does not require a local LLM.
+The default writer is deterministic.
 
-Research bundles are converted into deterministic articles whose numerical claims are checked against the underlying structured evidence.
-
-Example:
-
-```bash
-laborlens article \
-  --start 2024-06-01 \
-  --as-of 2024-09-01
-```
-
-Example output:
+It converts a structured `ResearchBundle` into an article containing:
 
 ```text
-# Labor-market indicators are weakening broadly
-
-LaborLens identified a broad contraction episode...
-
+Direct answer
+What changed?
 Evidence
-
-- Total nonfarm payroll employment (PAYEMS)
-- Unemployment rate (UNRATE)
-- Initial unemployment claims (ICSA)
-- Hires rate (JTSHIR)
+Historical context
+What this does not establish
+Methodology
 ```
 
-Before publication, the verifier checks numerical and date claims against the research bundle.
+The writer does not independently invent numerical facts.
+
+A verifier checks generated numbers and dates against the research bundle before accepting the draft.
+
+Conceptually:
 
 ```text
-writer
-   ↓
+ResearchBundle
+     │
+     ▼
+deterministic writer
+     │
+     ▼
 draft
-   ↓
-numeric/date verifier
-   ↓
-PASSED / REJECTED
+     │
+     ▼
+number/date verifier
+     │
+     ├── PASSED
+     │
+     └── REJECTED
 ```
 
-This design avoids making an LLM responsible for numerical truth.
-
-An Ollama writer remains available experimentally, but deterministic generation is the primary grounded path.
+An experimental Ollama integration remains in the repository, but the deterministic writer is the default grounded path.
 
 ---
 
-## Release-Aware Historical Replay
+## Release-Aware Replay
 
-A major feature of LaborLens is the ability to replay an episode across actual economic information updates.
+One of the central features of LaborLens is historical replay across actual economic information updates.
 
-Instead of evaluating only every 30 days, release-aware replay obtains dates on which tracked series actually released or revised information.
+Instead of evaluating every arbitrary N days, LaborLens can evaluate the system whenever one of the tracked series releases or revises information.
 
 Example:
 
@@ -339,113 +449,138 @@ laborlens replay-eval \
   --min-confidence 0.55
 ```
 
-For the June 2024 contraction episode, LaborLens reconstructed 20 historical information states.
+For the June 2024 contraction example, the replay produced 20 historical information states.
 
-The episode first appeared on:
-
-```text
-2024-07-30
-```
-
-The previous information state was:
+The episode was not detected through:
 
 ```text
 2024-07-25
 ```
 
-The information arriving on the detection date came from:
+It first became detectable on:
+
+```text
+2024-07-30
+```
+
+The information update on that date included:
 
 ```text
 JTSHIR
 JTSJOL
 ```
 
-The detected episode then remained present through the final replay state.
-
-Example revision metrics:
+The initial detected score was approximately:
 
 ```text
-first_detected_as_of=2024-07-30
-previous_information_state=2024-07-25
-detection_release_series=JTSHIR,JTSJOL
-
-detection_latency_days=59
-survival_rate=100.0%
-claim_type_flips=0
-
-initial_score=-0.446
-final_score=-0.461
-absolute_score_revision=0.015
-
-start_drift_months=0
-end_drift_months=0
+-0.446
 ```
 
-This allows LaborLens to distinguish between:
+After subsequent information arrived, it became approximately:
 
-- when an economic condition occurred,
-- when enough information existed to detect it,
-- and how much the conclusion changed afterward.
+```text
+-0.461
+```
+
+and remained detected through the final replay state.
+
+---
+
+## Replay Explorer
+
+The public frontend visualizes the release-aware reconstruction directly.
+
+Open:
+
+https://laborlens-eosin.vercel.app/replay
+
+The June 2024 example shows:
+
+```text
+2024-07-25    NOT DETECTED
+2024-07-30    FIRST DETECTED     -0.446
+2024-08-01    DETECTED           -0.446
+2024-08-02    DETECTED           -0.461
+...
+2024-09-01    DETECTED           -0.461
+```
+
+Associated revision metrics include:
+
+```text
+detection latency          59 days
+survival rate              100%
+claim-type flips           0
+absolute score revision    ~0.015
+start-boundary drift       0 months
+end-boundary drift         0 months
+```
+
+This distinguishes:
+
+```text
+when an economic state occurred
+```
+
+from:
+
+```text
+when enough official information existed to identify it
+```
 
 ---
 
 ## Revision Metrics
 
-Replay evaluation measures several forms of historical stability.
+LaborLens evaluates several dimensions of point-in-time stability.
 
 ### Detection latency
 
 ```text
-first detection date - episode observation date
+first detection information date
+-
+episode observation date
 ```
 
-This measures how long it took for released economic data to make an episode detectable.
+Measures how long it took before the released information made the episode detectable.
 
 ### Survival rate
 
-Measures how often an episode remains detected after its first appearance.
+Measures how frequently the episode remains detected after first appearing.
 
 ### Score revision
 
 ```text
-|final score - initial score|
+|final score - initial detected score|
 ```
 
-Measures how strongly later data revisions change the estimated severity of an episode.
+Measures how much later information changed the estimated episode severity.
 
 ### Claim-type flips
 
-Tracks whether later information changes the qualitative interpretation of an episode.
+Measures whether later vintages change the qualitative interpretation of an episode.
 
 ### Boundary drift
 
-Tracks whether later information moves the estimated beginning or end of an episode.
-
-Together, these metrics measure not only whether the system eventually finds an event, but whether its conclusions are stable under data revision.
+Measures whether later information moves the estimated beginning or end of the episode.
 
 ---
 
 ## Anti-Survivorship Backtesting
 
-Evaluating only episodes visible in the final revised dataset introduces survivorship bias.
+Looking only at episodes visible in today's final revised history introduces survivorship bias.
 
-LaborLens therefore reconstructs **real-time episode families** across historical information states.
+LaborLens therefore reconstructs **every episode family that appeared in real time**.
 
-A family tracks the same evolving episode through successive vintages:
+A family can:
 
 ```text
-first appearance
-      ↓
-subsequent releases
-      ↓
-revisions
-      ↓
-boundary changes
-      ↓
-final state or disappearance
+appear
+persist
+change boundaries
+change type
+disappear after revision
 ```
-
-This reveals episodes that appeared plausible in real time but disappeared after later revisions.
 
 Example:
 
@@ -459,169 +594,169 @@ laborlens backtest \
   --show-families
 ```
 
-For one evaluated configuration:
+Baseline results:
 
-```text
-realtime_episode_families=3
-persistent_families=2
-disappeared_families=1
+| Metric | Result |
+|---|---:|
+| Final-state episodes evaluated | 2 |
+| Detected historically | 2 / 2 |
+| Median detection latency | 62.5 days |
+| Mean survival after detection | 100% |
+| Claim-type flip rate | 0% |
+| Median absolute score revision | 0.134 |
+| Real-time episode families | 3 |
+| Persistent families | 2 |
+| Disappeared families | 1 |
+| Persistence rate | 66.7% |
+| Revision disappearance rate | 33.3% |
+| Mean start drift | 0 months |
+| Mean family end drift | 7 months |
 
-persistence_rate=66.7%
-revision_disappearance_rate=33.3%
-```
+`revision_disappearance_rate` means that an episode family appeared in historical real-time states but was absent from the final reconstructed state.
 
-`revision_disappearance_rate` specifically means that an episode family detected from historical vintages was no longer represented in the final reconstructed state.
+It is **not** a conventional statistical false-discovery rate.
 
-It is **not** a conventional predictive false-positive rate.
+The small number of final-state episodes is also important: `2/2 detected` should not be interpreted as broad evidence of universal 100% detection performance.
 
 ---
 
 ## Sensitivity Analysis
 
-The model was evaluated under multiple rolling normalization windows.
+LaborLens was evaluated under several normalization windows.
 
-### 12-month window
+| Window | Final episodes | Median latency | Mean survival | Type flip rate | Revision disappearance | Median score revision |
+|---:|---:|---:|---:|---:|---:|---:|
+| 12 months | 7 | 75 d | 91.2% | 14.3% | 36.4% | 0.097 |
+| **24 months** | **2** | **62.5 d** | **100%** | **0%** | **33.3%** | **0.134** |
+| 36 months | 3 | 61 d | 100% | 0% | 0% | 0.054 |
+
+The experiments expose a responsiveness/stability tradeoff.
 
 ```text
-final episodes:                7
-real-time episode families:   11
-persistence rate:             63.6%
-revision disappearance rate: 36.4%
-median detection latency:     75 days
-mean survival rate:           91.2%
+shorter window
+      │
+      ▼
+more responsive
+      │
+      ▼
+more episodes
+      │
+      ▼
+more revision instability
 ```
 
-This configuration is more responsive but produces more revision-sensitive episodes.
-
-### 24-month window
+versus:
 
 ```text
-final episodes:                2
-real-time episode families:    3
-persistence rate:             66.7%
-revision disappearance rate: 33.3%
-median detection latency:     62.5 days
-mean survival rate:           100%
-```
-
-### 36-month window
-
-```text
-final episodes:                3
-real-time episode families:    3
-persistence rate:             100%
-revision disappearance rate:   0%
-median detection latency:     61 days
-mean survival rate:           100%
-```
-
-These results expose an important tradeoff:
-
-```text
-shorter normalization window
-        ↓
-greater responsiveness
-        ↓
-more detected episodes
-        ↓
-greater revision sensitivity
-
-
-longer normalization window
-        ↓
-greater smoothing
-        ↓
+longer window
+      │
+      ▼
+more smoothing
+      │
+      ▼
 fewer unstable episodes
-        ↓
+      │
+      ▼
 greater historical persistence
 ```
 
-The goal is therefore not simply to maximize the number of detected events.
-
-The evaluation framework makes the responsiveness/stability tradeoff measurable.
+The 24-month configuration is used as the primary demonstration configuration, not because it is proven optimal, but because it provides a reasonable middle point for the evaluated sample.
 
 ---
 
 ## Confidence Sensitivity
 
-For the tested 24-month configuration, changing the minimum confidence threshold from:
+At a 24-month normalization window, the evaluated results were unchanged for:
 
 ```text
-0.50
+min_confidence = 0.50
+min_confidence = 0.55
+min_confidence = 0.60
 ```
 
-to:
+Within this historical sample, the normalization horizon therefore affected the resulting episodes more strongly than moderate changes to the confidence threshold.
 
-```text
-0.55
-```
-
-to:
-
-```text
-0.60
-```
-
-did not change the evaluated episode set.
-
-This suggests that, within that range and historical sample, the normalization window was a more important sensitivity parameter than the confidence cutoff.
-
-This observation is empirical and specific to the evaluated data range; it should not be interpreted as a universal property of the model.
+This is an empirical observation for the evaluated data range, not a universal model property.
 
 ---
 
-## Historical Example: June 2024
+## REST API
 
-Using information available through September 1, 2024, LaborLens identified:
+The FastAPI service exposes public research endpoints.
 
-```text
-episode:
-    2024-06-01 .. 2024-06-01
+### Health
 
-type:
-    broad_contraction
-
-score:
-    -0.461
-
-confidence:
-    0.843
+```http
+GET /health
 ```
 
-Supporting signals included:
+Example:
 
-```text
-PAYEMS   -0.85
-UNRATE   -0.66
-ICSA     -0.62
-JTSHIR   -0.33
+```json
+{
+  "status": "ok",
+  "service": "laborlens",
+  "mode": "demo"
+}
 ```
 
-Release-aware replay showed that the episode was not detectable through July 25.
+### Episodes
 
-On July 30, new JOLTS information associated with `JTSHIR` and `JTSJOL` entered the information set and the episode became detectable.
-
-Its score subsequently moved from approximately:
-
-```text
--0.446
+```http
+GET /episodes
 ```
 
-to:
+Optional parameters include:
 
 ```text
--0.461
+window
+min_confidence
+as_of
 ```
 
-while the claim type and episode boundaries remained unchanged.
+### Episode detail
 
-This is the type of distinction that final-vintage-only analysis cannot recover.
+```http
+GET /episodes/{start_date}
+```
+
+Example:
+
+```http
+GET /episodes/2024-06-01?as_of=2024-09-01
+```
+
+### Article
+
+```http
+GET /article/{start_date}
+```
+
+### Replay
+
+```http
+GET /replay
+```
+
+Example:
+
+```text
+/replay
+?from=2024-06-01
+&to=2024-09-01
+&target=2024-06-01
+&schedule=releases
+&window=24
+&min_confidence=0.55
+```
+
+Interactive OpenAPI documentation is available through FastAPI when the service is running.
 
 ---
 
 ## CLI
 
-LaborLens exposes the research pipeline through a Typer CLI.
+LaborLens also exposes the full research workflow through a Typer CLI.
 
 ```text
 laborlens ingest
@@ -656,22 +791,31 @@ for command-specific options.
 
 ---
 
-## Installation
+## Local Installation
 
 ### Requirements
 
-- Python 3.11+
-- Docker
-- FRED API key
+```text
+Python 3.11+
+Docker
+FRED API key
+```
 
-Clone the repository and create a virtual environment:
+Clone:
+
+```bash
+git clone https://github.com/namtran1812/laborlens.git
+cd laborlens
+```
+
+Create a virtual environment:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-Install LaborLens with development dependencies:
+Install:
 
 ```bash
 pip install -e ".[dev]"
@@ -681,11 +825,24 @@ pip install -e ".[dev]"
 
 ## Configuration
 
-Create a `.env` file containing the configuration required by `laborlens/config.py`, including your FRED API key and ClickHouse connection settings.
+Create a local `.env` file.
 
-Do not commit API keys.
+Example:
 
-The repository `.gitignore` should keep `.env` outside version control.
+```env
+FRED_API_KEY=YOUR_FRED_API_KEY
+
+CLICKHOUSE_HOST=localhost
+CLICKHOUSE_PORT=8123
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD=laborlens
+CLICKHOUSE_DATABASE=laborlens
+
+LABORLENS_DEMO_MODE=false
+LABORLENS_CORS_ORIGINS=http://localhost:3000
+```
+
+`.env` is ignored by Git and should never be committed.
 
 ---
 
@@ -695,53 +852,122 @@ The repository `.gitignore` should keep `.env` outside version control.
 docker compose up -d
 ```
 
-Check the container:
+Verify:
 
 ```bash
-docker ps
+docker compose ps
 ```
 
-The included Compose configuration exposes:
+The default local configuration exposes:
 
 ```text
-HTTP:   localhost:8123
-Native: localhost:9000
+ClickHouse HTTP     localhost:8123
+ClickHouse native   localhost:9000
 
-Database: laborlens
-User:     default
+database             laborlens
+user                 default
 ```
 
-The schema in:
+The schema is initialized from:
 
 ```text
 migrations/001_init.sql
 ```
 
-is loaded through the ClickHouse initialization directory.
+---
+
+## Run the API
+
+```bash
+laborlens-api
+```
+
+or:
+
+```bash
+python -m uvicorn \
+  laborlens.api.app:app \
+  --host 0.0.0.0 \
+  --port 8000
+```
+
+Then:
+
+```bash
+curl http://localhost:8000/health
+```
+
+---
+
+## Run the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+The frontend communicates with:
+
+```text
+NEXT_PUBLIC_LABORLENS_API_URL
+```
+
+which defaults to:
+
+```text
+http://localhost:8000
+```
+
+during local development.
+
+---
+
+## Zero-Cost Demo Mode
+
+The hosted API can run with no ClickHouse instance and no FRED credentials.
+
+Start it locally with:
+
+```bash
+LABORLENS_DEMO_MODE=true \
+python -m uvicorn \
+  laborlens.api.app:app \
+  --host 127.0.0.1 \
+  --port 8001
+```
+
+Then:
+
+```bash
+curl http://localhost:8001/health
+```
+
+returns:
+
+```json
+{
+  "status": "ok",
+  "service": "laborlens",
+  "mode": "demo"
+}
+```
+
+Demo mode intentionally returns the validated frozen historical example used by the public site.
+
+It does not replace the full ClickHouse-backed research engine.
 
 ---
 
 ## Development
 
-Run the test suite:
-
-```bash
-pytest -q
-```
-
-Run static checks:
-
-```bash
-ruff check .
-```
-
-Format the repository:
-
-```bash
-ruff format .
-```
-
-Run the complete validation sequence:
+Backend validation:
 
 ```bash
 ruff format .
@@ -749,13 +975,25 @@ ruff check .
 pytest -q
 ```
 
-At the current development checkpoint:
+Frontend validation:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+The clean-clone reproducibility test verified:
 
 ```text
-64 tests passed
+editable Python installation
+Ruff
+full pytest suite
+fresh ClickHouse initialization
+fresh FRED ingestion
+release-aware vintage backfill
+clean Git working tree
 ```
-
-covering the statistical pipeline, research layer, writer verification, vintage handling, replay evaluation, and historical backtesting.
 
 ---
 
@@ -763,11 +1001,15 @@ covering the statistical pipeline, research layer, writer verification, vintage 
 
 ```text
 laborlens/
-│
 ├── analysis/
 │   ├── divergence.py
 │   ├── features.py
 │   └── regime.py
+│
+├── api/
+│   ├── app.py
+│   ├── demo.py
+│   └── run.py
 │
 ├── data/
 │   └── fred.py
@@ -802,107 +1044,135 @@ laborlens/
 ├── config.py
 └── models.py
 
+frontend/
+└── src/
+    ├── app/
+    │   ├── episodes/
+    │   ├── replay/
+    │   └── page.tsx
+    │
+    ├── components/
+    │   ├── EvidenceBars.tsx
+    │   ├── MetricCard.tsx
+    │   ├── RegimeBadge.tsx
+    │   └── ReplayTimeline.tsx
+    │
+    └── lib/
+        └── api.ts
+
 migrations/
 └── 001_init.sql
 
 tests/
-├── test_backtest.py
-├── test_claims.py
-├── test_divergence.py
-├── test_episodes.py
-├── test_evidence.py
-├── test_features.py
-├── test_fred.py
-├── test_regime.py
-├── test_replay.py
-├── test_research_bundle.py
-├── test_research_pipeline.py
-├── test_vintage_backfill.py
-└── test_writer.py
 ```
 
 ---
 
 ## Design Principles
 
-LaborLens follows several constraints intentionally.
+**Point-in-time correctness over retrospective convenience**
 
-**Point-in-time correctness over retrospective convenience.**  
-Historical analysis should use the information that actually existed at the time.
+Historical analysis should use the information actually available at the time.
 
-**Structured evidence before prose.**  
-The research pipeline decides what is supported before the writer generates an article.
+**Revisions are part of the data**
 
-**Deterministic numerical grounding.**  
+Economic revisions are explicitly modeled rather than discarded.
+
+**Structured evidence before prose**
+
+The research engine determines what is supported before the writer generates text.
+
+**Deterministic numerical grounding**
+
 Numbers and dates in generated research are checked against structured evidence.
 
-**Revisions are part of the problem.**  
-Economic revisions are modeled rather than discarded.
+**Evaluate disappearing conclusions**
 
-**Evaluate disappearing conclusions.**  
-Backtests include real-time episode families that later vanish instead of evaluating only surviving final-state episodes.
+Backtesting includes real-time episodes that later vanish instead of evaluating only final survivors.
 
-**Separate detection from causation.**  
-LaborLens identifies statistical co-movement and regimes. It does not infer economic causality from those relationships alone.
+**Detection is not causation**
+
+LaborLens identifies statistical regimes and co-movement. It does not claim that those relationships establish causal economic mechanisms.
+
+**Hosted demo is not the research database**
+
+The public zero-cost deployment uses a frozen validated snapshot. The full ClickHouse-backed system remains available in the repository and local research workflow.
 
 ---
 
 ## Limitations
 
-LaborLens is an experimental research system, not a forecasting or trading model.
+LaborLens is an experimental research and engineering system.
 
-Several limitations remain:
+Current limitations include:
 
-- the current signal universe contains a small set of labor-market indicators;
-- historical results depend on available FRED/ALFRED vintage coverage;
-- episode-family matching is an analytical definition rather than economic ground truth;
-- detection latency partly reflects official publication schedules;
-- the regime score measures standardized statistical movement rather than economic magnitude in natural units;
-- historical persistence does not establish predictive validity;
-- detected co-movement does not establish causality;
-- the current evaluation sample contains relatively few final-state episodes under some parameter configurations.
+- a relatively small labor-market signal universe;
+- dependence on available FRED/ALFRED vintage history;
+- detection latency that partially reflects official publication schedules;
+- episode-family matching based on an analytical similarity definition rather than economic ground truth;
+- a small number of final-state episodes under some configurations;
+- standardized regime scores that do not directly represent natural economic units;
+- no claim that historical regime detection implies forecasting ability;
+- no causal inference from cross-series co-movement;
+- a hosted demo that intentionally serves a frozen snapshot rather than a continuously updated production database.
 
-Backtest statistics should therefore be interpreted as diagnostics of **revision robustness and historical behavior**, not estimates of investment performance or forecasting accuracy.
+The backtests measure **historical revision robustness**, not investment performance.
 
 ---
 
 ## Research Questions
 
-LaborLens is designed to make several questions experimentally testable:
+LaborLens makes questions like these experimentally testable:
 
-1. How early can broad labor-market regime changes be detected using only contemporaneously available information?
-2. How strongly do later economic revisions alter those conclusions?
-3. Which indicators cause a regime to cross the detection threshold?
-4. How frequently do real-time episodes disappear from the final revised historical record?
-5. How does normalization horizon affect responsiveness versus revision stability?
-6. Which conclusions remain stable across both data vintages and model configurations?
-
----
-
-## Future Work
-
-Potential extensions include:
-
-- expanding the economic indicator universe;
-- automated parameter sweeps;
-- rolling out-of-sample evaluation;
-- richer episode-family matching;
-- release-specific attribution and ablation analysis;
-- uncertainty calibration;
-- additional regime definitions;
-- structured JSON research exports;
-- visualization of vintage trajectories;
-- automated research reports and dashboards.
+1. How early can broad labor-market regimes be detected using only contemporaneously available information?
+2. How strongly do later data revisions change those conclusions?
+3. Which releases cause a regime to cross the detection threshold?
+4. How frequently do real-time episodes disappear from final revised history?
+5. How does normalization horizon affect responsiveness versus stability?
+6. Which episode boundaries remain stable under revision?
+7. Which conclusions survive both data revisions and model-parameter changes?
 
 ---
 
 ## Tech Stack
 
-**Python · ClickHouse · FRED/ALFRED · Docker · Typer · Pydantic · HTTPX · Pytest · Ruff**
+### Research / backend
 
-Optional experimental generation:
+```text
+Python
+FastAPI
+Typer
+Pydantic
+HTTPX
+ClickHouse
+FRED / ALFRED
+Docker
+Pytest
+Ruff
+```
 
-**Ollama / local language models**
+### Frontend
+
+```text
+Next.js
+React
+TypeScript
+Tailwind CSS
+```
+
+### Deployment
+
+```text
+Vercel
+Render
+```
+
+### Experimental local generation
+
+```text
+Ollama
+Qwen
+```
 
 ---
 
@@ -910,4 +1180,4 @@ Optional experimental generation:
 
 LaborLens is a research and engineering project.
 
-Its outputs are statistical analyses of economic data and should not be interpreted as financial, investment, policy, or employment advice.
+Its outputs are statistical analyses of public economic data and should not be interpreted as financial, investment, employment, or policy advice.
