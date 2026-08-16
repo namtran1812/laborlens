@@ -6,7 +6,6 @@ import { DemoNotice } from "@/components/DemoNotice";
 import { MetricCard } from "@/components/MetricCard";
 import { RegimeBadge } from "@/components/RegimeBadge";
 import { ReplayTimeline } from "@/components/ReplayTimeline";
-import { Window } from "@/components/retro/Window";
 import { getMeta, getReplay } from "@/lib/api";
 
 export const metadata: Metadata = {
