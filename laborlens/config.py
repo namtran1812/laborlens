@@ -6,6 +6,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     fred_api_key: str = ""
 
+    laborlens_llm_provider: str = "ollama"
+    laborlens_model: str = "qwen3:8b"
+    ollama_host: str = "http://localhost:11434"
+
     clickhouse_host: str = "localhost"
     clickhouse_port: int = 8123
     clickhouse_user: str = "default"

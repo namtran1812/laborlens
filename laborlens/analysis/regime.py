@@ -29,11 +29,13 @@ class RegimePoint:
     observation_date: date
     raw_score: float
     score: float
+    raw_dispersion: float
     dispersion: float
     signals_used: int
     coverage: float
     label: str
     contributions: dict[str, float]
+    smoothed_contributions: dict[str, float]
 
 
 DEFAULT_SPECS = {
@@ -300,13 +302,29 @@ def compute_regime(
 
         smoothed_score = fmean(history)
 
+        contribution_history: dict[str, list[float]] = defaultdict(list)
+
+        for history_item in provisional[start_index : index + 1]:
+            for series_id, value in history_item[5].items():
+                contribution_history[series_id].append(value)
+
+        smoothed_contributions = {
+            series_id: fmean(values) for series_id, values in contribution_history.items()
+        }
+
+        smoothed_values = list(smoothed_contributions.values())
+
+        smoothed_variance = fmean((value - smoothed_score) ** 2 for value in smoothed_values)
+
+        smoothed_dispersion = sqrt(smoothed_variance)
+
         if coverage < 0.8:
             label = "low_coverage"
 
         else:
             label = classify_regime(
                 smoothed_score,
-                dispersion,
+                smoothed_dispersion,
             )
 
         result.append(
@@ -314,11 +332,13 @@ def compute_regime(
                 observation_date=(observation_date),
                 raw_score=raw_score,
                 score=smoothed_score,
-                dispersion=dispersion,
+                raw_dispersion=dispersion,
+                dispersion=smoothed_dispersion,
                 signals_used=signals_used,
                 coverage=coverage,
                 label=label,
                 contributions=contributions,
+                smoothed_contributions=smoothed_contributions,
             )
         )
 

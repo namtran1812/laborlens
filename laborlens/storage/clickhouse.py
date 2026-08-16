@@ -144,6 +144,37 @@ class ClickHouseStore:
 
         return result.result_rows
 
+    def provenance_for_window(
+        self,
+        series_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[tuple]:
+        result = self.client.query(
+            """
+            SELECT
+                observation_date,
+                value,
+                realtime_start,
+                realtime_end
+            FROM observations
+            WHERE
+                series_id = %(series_id)s
+                AND observation_date >= %(start_date)s
+                AND observation_date <= %(end_date)s
+            ORDER BY
+                observation_date,
+                realtime_start
+            """,
+            parameters={
+                "series_id": series_id.upper(),
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+
+        return result.result_rows
+
     def latest_snapshot(
         self,
         series_id: str,
