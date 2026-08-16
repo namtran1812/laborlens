@@ -120,7 +120,7 @@ def analyze(
     latest: bool = typer.Option(
         False,
         "--latest",
-        help="Use the newest stored vintage.",
+        help="Use the newest stored snapshot.",
     ),
     window: int = typer.Option(
         12,
@@ -137,21 +137,23 @@ def analyze(
         raise typer.BadParameter("use either --latest or --date, not both")
 
     if latest:
-        resolved_date = store.latest_vintage_date(series_id.upper())
+        rows = store.latest_snapshot(series_id.upper())
 
-        if resolved_date is None:
+        if not rows:
             raise typer.BadParameter(f"no observations stored for {series_id.upper()}")
+
+        resolved_date = max(row[2] for row in rows)
 
     elif query_date is not None:
         resolved_date = date.fromisoformat(query_date)
 
+        rows = store.as_of(
+            series_id.upper(),
+            resolved_date,
+        )
+
     else:
         raise typer.BadParameter("provide either --date YYYY-MM-DD or --latest")
-
-    rows = store.as_of(
-        series_id.upper(),
-        resolved_date,
-    )
 
     points = [
         SeriesPoint(
@@ -173,9 +175,13 @@ def analyze(
     )
 
     typer.echo(f"series={series_id.upper()}")
+
     typer.echo(f"as_of={resolved_date}")
+
     typer.echo(f"observations={len(points)}")
+
     typer.echo(f"anomalies={len(flagged)}")
+
     typer.echo("")
 
     for point in flagged:
@@ -204,7 +210,7 @@ def compare(
     latest: bool = typer.Option(
         False,
         "--latest",
-        help="Use each series' newest stored vintage.",
+        help="Use the newest stored snapshot for each series.",
     ),
     window: int = typer.Option(
         12,
@@ -233,15 +239,19 @@ def compare(
     store = ClickHouseStore(get_settings())
 
     if latest:
-        left_date = store.latest_vintage_date(left_series)
+        left_rows = store.latest_snapshot(left_series)
 
-        right_date = store.latest_vintage_date(right_series)
+        right_rows = store.latest_snapshot(right_series)
 
-        if left_date is None:
+        if not left_rows:
             raise typer.BadParameter(f"no observations stored for {left_series}")
 
-        if right_date is None:
+        if not right_rows:
             raise typer.BadParameter(f"no observations stored for {right_series}")
+
+        left_date = max(row[2] for row in left_rows)
+
+        right_date = max(row[2] for row in right_rows)
 
     else:
         shared_date = date.fromisoformat(query_date)
@@ -249,15 +259,15 @@ def compare(
         left_date = shared_date
         right_date = shared_date
 
-    left_rows = store.as_of(
-        left_series,
-        left_date,
-    )
+        left_rows = store.as_of(
+            left_series,
+            shared_date,
+        )
 
-    right_rows = store.as_of(
-        right_series,
-        right_date,
-    )
+        right_rows = store.as_of(
+            right_series,
+            shared_date,
+        )
 
     left = [
         (
@@ -327,6 +337,78 @@ def compare(
             f"{right_series}_z={right_z}\t"
             f"div={divergence}\t"
             f"corr={correlation}"
+        )
+
+
+@app.command()
+def regime(
+    window: int = typer.Option(
+        24,
+        "--window",
+        help="Rolling window used to normalize each signal.",
+    ),
+    limit: int = typer.Option(
+        36,
+        "--limit",
+        help="Number of most recent regime observations to print.",
+    ),
+) -> None:
+    from laborlens.analysis.regime import (
+        DEFAULT_SPECS,
+        compute_regime,
+        compute_signal,
+    )
+
+    store = ClickHouseStore(get_settings())
+
+    signals = {}
+
+    for series_id, spec in DEFAULT_SPECS.items():
+        rows = store.latest_snapshot(series_id)
+
+        if not rows:
+            typer.echo(f"warning: no data for {series_id}")
+            continue
+
+        points = [
+            (
+                row[0],
+                float(row[1]),
+            )
+            for row in rows
+            if row[1] is not None
+        ]
+
+        signals[series_id] = compute_signal(
+            points,
+            spec,
+            window=window,
+        )
+
+    regimes = compute_regime(signals)
+
+    typer.echo(f"window={window}")
+
+    typer.echo(f"signals={','.join(signals)}")
+
+    typer.echo(f"regime_observations={len(regimes)}")
+
+    typer.echo("")
+
+    for point in regimes[-limit:]:
+        contributions = " ".join(
+            f"{series}={value:.2f}" for series, value in sorted(point.contributions.items())
+        )
+
+        typer.echo(
+            f"{point.observation_date}\t"
+            f"raw={point.raw_score:.3f}\t"
+            f"score={point.score:.3f}\t"
+            f"dispersion={point.dispersion:.3f}\t"
+            f"coverage={point.coverage:.0%}\t"
+            f"label={point.label}\t"
+            f"signals={point.signals_used}\t"
+            f"{contributions}"
         )
 
 

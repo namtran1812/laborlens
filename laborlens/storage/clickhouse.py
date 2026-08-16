@@ -144,6 +144,34 @@ class ClickHouseStore:
 
         return result.result_rows
 
+    def latest_snapshot(
+        self,
+        series_id: str,
+    ) -> list[tuple]:
+        result = self.client.query(
+            """
+            SELECT
+                observation_date,
+                value,
+                realtime_start,
+                realtime_end
+            FROM observations
+            WHERE
+                series_id = %(series_id)s
+                AND ingested_at = (
+                    SELECT max(ingested_at)
+                    FROM observations
+                    WHERE series_id = %(series_id)s
+                )
+            ORDER BY observation_date
+            """,
+            parameters={
+                "series_id": series_id.upper(),
+            },
+        )
+
+        return result.result_rows
+
     def latest_vintage_date(
         self,
         series_id: str,
