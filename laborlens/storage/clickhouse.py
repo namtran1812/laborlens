@@ -144,6 +144,23 @@ class ClickHouseStore:
 
         return result.result_rows
 
+    def latest_vintage_date(
+        self,
+        series_id: str,
+    ) -> date | None:
+        result = self.client.query(
+            """
+            SELECT max(realtime_start)
+            FROM observations
+            WHERE series_id = %(series_id)s
+            """,
+            parameters={
+                "series_id": series_id.upper(),
+            },
+        )
+
+        return result.result_rows[0][0]
+
     def as_of(
         self,
         series_id: str,

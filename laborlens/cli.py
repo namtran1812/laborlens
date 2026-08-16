@@ -5,6 +5,7 @@ from datetime import date
 
 import typer
 
+from laborlens.analysis.features import SeriesPoint, anomalies, compute_features
 from laborlens.config import get_settings
 from laborlens.data.fred import FredClient
 from laborlens.services.ingestion import IngestionService
@@ -97,9 +98,7 @@ def as_of(
         "--date",
     ),
 ) -> None:
-    settings = get_settings()
-
-    store = ClickHouseStore(settings)
+    store = ClickHouseStore(get_settings())
 
     rows = store.as_of(
         series_id.upper(),
@@ -113,10 +112,15 @@ def as_of(
 @app.command()
 def analyze(
     series_id: str,
-    query_date: str = typer.Option(
-        ...,
+    query_date: str | None = typer.Option(
+        None,
         "--date",
         help="Historical information date.",
+    ),
+    latest: bool = typer.Option(
+        False,
+        "--latest",
+        help="Use the newest stored vintage.",
     ),
     window: int = typer.Option(
         12,
@@ -127,19 +131,26 @@ def analyze(
         "--threshold",
     ),
 ) -> None:
-    from laborlens.analysis.features import (
-        SeriesPoint,
-        anomalies,
-        compute_features,
-    )
+    store = ClickHouseStore(get_settings())
 
-    settings = get_settings()
+    if latest and query_date is not None:
+        raise typer.BadParameter("use either --latest or --date, not both")
 
-    store = ClickHouseStore(settings)
+    if latest:
+        resolved_date = store.latest_vintage_date(series_id.upper())
+
+        if resolved_date is None:
+            raise typer.BadParameter(f"no observations stored for {series_id.upper()}")
+
+    elif query_date is not None:
+        resolved_date = date.fromisoformat(query_date)
+
+    else:
+        raise typer.BadParameter("provide either --date YYYY-MM-DD or --latest")
 
     rows = store.as_of(
         series_id.upper(),
-        date.fromisoformat(query_date),
+        resolved_date,
     )
 
     points = [
@@ -162,22 +173,22 @@ def analyze(
     )
 
     typer.echo(f"series={series_id.upper()}")
-
-    typer.echo(f"as_of={query_date}")
-
+    typer.echo(f"as_of={resolved_date}")
     typer.echo(f"observations={len(points)}")
-
     typer.echo(f"anomalies={len(flagged)}")
-
     typer.echo("")
 
     for point in flagged:
+        delta1 = f"{point.delta_1:.4f}" if point.delta_1 is not None else "None"
+
+        acceleration = f"{point.acceleration:.4f}" if point.acceleration is not None else "None"
+
         typer.echo(
             f"{point.observation_date}\t"
             f"value={point.value:.4f}\t"
             f"z={point.z_score:.3f}\t"
-            f"delta1={point.delta_1}\t"
-            f"accel={point.acceleration}"
+            f"delta1={delta1}\t"
+            f"accel={acceleration}"
         )
 
 

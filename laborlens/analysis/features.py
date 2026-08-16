@@ -161,6 +161,9 @@ def compute_features(
             else None
         )
 
+        if acceleration is not None and abs(acceleration) < 1e-12:
+            acceleration = 0.0
+
         anomaly_score = abs(z_score) if z_score is not None else None
 
         features.append(
