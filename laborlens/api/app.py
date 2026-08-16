@@ -3,15 +3,26 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated
 
+import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from laborlens.analysis.regime import DEFAULT_SPECS
+from laborlens.api.assistant import (
+    SUGGESTED_QUESTIONS,
+    demo_answer,
+    ollama_answer,
+)
 from laborlens.api.demo import (
     demo_article,
     demo_episode_detail,
     demo_episodes,
     demo_replay,
+)
+from laborlens.api.schemas import (
+    AskRequest,
+    AskResponse,
+    ProductMeta,
 )
 from laborlens.config import get_settings
 from laborlens.evaluation.replay import evaluate_replay
@@ -35,7 +46,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -127,17 +138,6 @@ def episode_detail(
 
         return result
 
-    if settings.laborlens_demo_mode:
-        result = demo_article(start_date)
-
-        if result is None:
-            raise HTTPException(
-                status_code=404,
-                detail=("Article is not included in the public demo dataset"),
-            )
-
-        return result
-
     try:
         bundle = pipeline().build(
             start_date=start_date,
@@ -210,6 +210,17 @@ def article(
         Query(),
     ] = None,
 ) -> dict:
+    if settings.laborlens_demo_mode:
+        result = demo_article(start_date)
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=("Article is not included in the public demo dataset"),
+            )
+
+        return result
+
     try:
         bundle = pipeline().build(
             start_date=start_date,
@@ -228,6 +239,90 @@ def article(
         "episode_id": (bundle.episode.episode_id),
         "article": (write_deterministic_article(bundle)),
     }
+
+
+@app.get(
+    "/meta",
+    response_model=ProductMeta,
+)
+def meta() -> ProductMeta:
+    return ProductMeta(
+        name="LaborLens",
+        version="0.1.0",
+        mode=("demo" if settings.laborlens_demo_mode else "research"),
+        research_engine=("revision-aware point-in-time labor-market regime analysis"),
+        ai_available=True,
+        ai_provider=(
+            "validated-demo" if settings.laborlens_demo_mode else settings.laborlens_llm_provider
+        ),
+        suggested_questions=list(SUGGESTED_QUESTIONS),
+    )
+
+
+@app.post(
+    "/ask",
+    response_model=AskResponse,
+)
+def ask(
+    request: AskRequest,
+) -> AskResponse:
+    if settings.laborlens_demo_mode:
+        if request.start_date != date(
+            2024,
+            6,
+            1,
+        ):
+            raise HTTPException(
+                status_code=404,
+                detail=("The public demo assistant currently covers the June 2024 episode."),
+            )
+
+        result = demo_answer(request.question)
+
+    else:
+        try:
+            bundle = pipeline().build(
+                start_date=(request.start_date),
+                window=request.window,
+                min_confidence=(request.min_confidence),
+                as_of_date=request.as_of,
+            )
+
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail=str(exc),
+            ) from exc
+
+        if settings.laborlens_llm_provider != "ollama":
+            raise HTTPException(
+                status_code=503,
+                detail=("Configured AI provider is not available."),
+            )
+
+        try:
+            result = ollama_answer(
+                question=request.question,
+                bundle=bundle,
+                settings=settings,
+            )
+
+        except (
+            httpx.HTTPError,
+            RuntimeError,
+        ) as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=("Local AI inference is unavailable."),
+            ) from exc
+
+    return AskResponse(
+        answer=result.answer,
+        mode=result.mode,
+        model=result.model,
+        sources=list(result.sources),
+        caveat=result.caveat,
+    )
 
 
 @app.get("/replay")

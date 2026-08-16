@@ -1,9 +1,11 @@
 import Link from "next/link";
 
+import { AppNav } from "@/components/AppNav";
+import { DemoNotice } from "@/components/DemoNotice";
 import { MetricCard } from "@/components/MetricCard";
 import { RegimeBadge } from "@/components/RegimeBadge";
 import { ReplayTimeline } from "@/components/ReplayTimeline";
-import { getReplay } from "@/lib/api";
+import { getMeta, getReplay } from "@/lib/api";
 
 type SearchParams = Promise<
   Record<
@@ -43,12 +45,15 @@ export default async function ReplayPage({
     "2024-09-01",
   );
 
-  const data = await getReplay({
-    from,
-    to,
-    target,
-    schedule: "releases",
-  });
+  const [data, meta] = await Promise.all([
+    getReplay({
+      from,
+      to,
+      target,
+      schedule: "releases",
+    }),
+    getMeta(),
+  ]);
 
   const metrics = data.metrics;
   const reference =
@@ -56,7 +61,10 @@ export default async function ReplayPage({
 
   return (
     <main className="min-h-screen bg-black text-white">
+      <AppNav mode={meta.mode} />
+
       <div className="mx-auto max-w-6xl px-6 py-12">
+        <DemoNotice mode={meta.mode} />
         <nav className="flex items-center justify-between">
           <Link
             href="/"

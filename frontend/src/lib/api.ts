@@ -165,3 +165,114 @@ export async function getReplay(options: {
 
   return response.json();
 }
+
+export type ProductMeta = {
+  name: string;
+  version: string;
+  mode: string;
+  research_engine: string;
+  ai_available: boolean;
+  ai_provider: string | null;
+  suggested_questions: string[];
+};
+
+export type AskResponse = {
+  answer: string;
+  mode: string;
+  model: string;
+  sources: string[];
+  caveat: string;
+};
+
+export type ArticleResponse = {
+  episode_id: string;
+  article: string;
+};
+
+export async function getMeta(): Promise<ProductMeta> {
+  const response = await fetch(
+    `${API_BASE}/meta`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      "Failed to load product metadata",
+    );
+  }
+
+  return response.json();
+}
+
+export async function getArticle(
+  startDate: string,
+  asOf?: string,
+): Promise<ArticleResponse> {
+  const params = new URLSearchParams();
+
+  if (asOf) {
+    params.set("as_of", asOf);
+  }
+
+  const query = params.toString();
+
+  const response = await fetch(
+    `${API_BASE}/article/${startDate}${
+      query ? `?${query}` : ""
+    }`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      "Failed to load research article",
+    );
+  }
+
+  return response.json();
+}
+
+export async function askLaborLens(
+  payload: {
+    question: string;
+    startDate: string;
+    asOf?: string;
+    window?: number;
+    minConfidence?: number;
+  },
+): Promise<AskResponse> {
+  const response = await fetch(
+    `${API_BASE}/ask`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        question: payload.question,
+        start_date: payload.startDate,
+        as_of: payload.asOf ?? null,
+        window: payload.window ?? 24,
+        min_confidence:
+          payload.minConfidence ?? 0.55,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const body = await response
+      .json()
+      .catch(() => null);
+
+    throw new Error(
+      body?.detail ??
+        "LaborLens assistant request failed",
+    );
+  }
+
+  return response.json();
+}
