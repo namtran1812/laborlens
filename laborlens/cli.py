@@ -1103,5 +1103,177 @@ def backfill_vintages(
     typer.echo(f"inserted={inserted}")
 
 
+@app.command("replay-eval")
+def replay_eval(
+    from_date: str = typer.Option(
+        ...,
+        "--from",
+        help="First historical information date.",
+    ),
+    to_date: str = typer.Option(
+        ...,
+        "--to",
+        help="Final historical information date.",
+    ),
+    target: str = typer.Option(
+        ...,
+        "--target",
+        help=("Observation month identifying the episode to track."),
+    ),
+    schedule: str = typer.Option(
+        "releases",
+        "--schedule",
+        help="Replay schedule: releases or fixed.",
+    ),
+    step_days: int = typer.Option(
+        30,
+        "--step-days",
+        help=("Days between states when --schedule fixed is used."),
+    ),
+    window: int = typer.Option(
+        24,
+        "--window",
+    ),
+    min_confidence: float = typer.Option(
+        0.55,
+        "--min-confidence",
+    ),
+) -> None:
+    from laborlens.analysis.regime import (
+        DEFAULT_SPECS,
+    )
+    from laborlens.evaluation.replay import (
+        evaluate_replay,
+    )
+    from laborlens.services.research_pipeline import (
+        ResearchPipeline,
+    )
+
+    try:
+        start_date = date.fromisoformat(from_date)
+        end_date = date.fromisoformat(to_date)
+        target_date = date.fromisoformat(target)
+
+    except ValueError as exc:
+        raise typer.BadParameter("dates must use YYYY-MM-DD") from exc
+
+    if start_date > end_date:
+        raise typer.BadParameter("--from cannot be later than --to")
+
+    if target_date > end_date:
+        raise typer.BadParameter("--target cannot be later than --to")
+
+    if step_days < 1:
+        raise typer.BadParameter("--step-days must be positive")
+
+    if schedule not in {
+        "releases",
+        "fixed",
+    }:
+        raise typer.BadParameter("--schedule must be releases or fixed")
+
+    settings = get_settings()
+
+    store = ClickHouseStore(settings)
+
+    evaluation_dates = None
+
+    if schedule == "releases":
+        evaluation_dates = store.information_dates(
+            list(DEFAULT_SPECS.keys()),
+            start_date,
+            end_date,
+        )
+
+        if not evaluation_dates:
+            raise typer.BadParameter(
+                "no release information dates were found in the requested range"
+            )
+
+    result = evaluate_replay(
+        ResearchPipeline(store),
+        start_date=start_date,
+        end_date=end_date,
+        target_date=target_date,
+        step_days=step_days,
+        window=window,
+        min_confidence=min_confidence,
+        evaluation_dates=evaluation_dates,
+    )
+
+    typer.echo(f"target={target_date}")
+    typer.echo(f"schedule={schedule}")
+    typer.echo(f"replay_dates={result.replay_dates}")
+    typer.echo(f"detected_states={result.detected_states}")
+    typer.echo(f"missing_states={result.missing_states}")
+    typer.echo("")
+
+    for state in result.tracked:
+        episode = state.episode
+
+        if episode is None:
+            typer.echo(f"{state.as_of_date}\tepisode=not_detected")
+            continue
+
+        typer.echo(
+            f"{state.as_of_date}\t"
+            f"period={episode.start_date}"
+            f"..{episode.end_date}\t"
+            f"type={episode.claim_type}\t"
+            f"score="
+            f"{episode.representative.score:.3f}\t"
+            f"confidence="
+            f"{episode.peak_confidence:.3f}"
+        )
+
+    typer.echo("")
+    typer.echo("revision_metrics:")
+
+    typer.echo(f"  first_detected_as_of={result.first_detected_as_of}")
+
+    typer.echo(f"  previous_information_state={result.previous_information_state}")
+
+    detection_series = []
+
+    if result.first_detected_as_of is not None:
+        detection_series = store.information_series_on_date(
+            list(DEFAULT_SPECS.keys()),
+            result.first_detected_as_of,
+        )
+
+    typer.echo(
+        "  detection_release_series=" + (",".join(detection_series) if detection_series else "none")
+    )
+
+    typer.echo(f"  last_detected_as_of={result.last_detected_as_of}")
+
+    typer.echo(f"  detection_latency_days={result.detection_latency_days}")
+
+    if result.survival_rate is None:
+        typer.echo("  survival_rate=n/a")
+    else:
+        typer.echo(f"  survival_rate={result.survival_rate:.1%}")
+
+    typer.echo(f"  claim_type_flips={result.claim_type_flips}")
+
+    typer.echo(f"  initial_score={result.initial_score}")
+
+    typer.echo(f"  final_score={result.final_score}")
+
+    typer.echo(f"  absolute_score_revision={result.absolute_score_revision}")
+
+    typer.echo(f"  initial_confidence={result.initial_confidence}")
+
+    typer.echo(f"  final_confidence={result.final_confidence}")
+
+    typer.echo(f"  mean_score_drift={result.mean_score_drift}")
+
+    typer.echo(f"  max_score_drift={result.max_score_drift}")
+
+    typer.echo(f"  start_drift_months={result.start_drift_months}")
+
+    typer.echo(f"  end_drift_months={result.end_drift_months}")
+
+
 if __name__ == "__main__":
     app()

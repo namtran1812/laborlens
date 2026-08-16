@@ -50,6 +50,54 @@ class ResearchPipeline:
             as_of_date,
         )
 
+    def discover_episodes(
+        self,
+        *,
+        window: int = 24,
+        min_confidence: float = 0.55,
+        as_of_date: date | None = None,
+    ) -> list:
+        signals = {}
+
+        for (
+            series_id,
+            spec,
+        ) in DEFAULT_SPECS.items():
+            rows = self._rows_for_series(
+                series_id,
+                as_of_date=as_of_date,
+            )
+
+            if not rows:
+                continue
+
+            points = [
+                (
+                    row[0],
+                    float(row[1]),
+                )
+                for row in rows
+                if row[1] is not None
+            ]
+
+            if not points:
+                continue
+
+            signals[series_id] = compute_signal(
+                points,
+                spec,
+                window=window,
+            )
+
+        regimes = compute_regime(signals)
+
+        claims = discover_claims(
+            regimes,
+            min_confidence=min_confidence,
+        )
+
+        return cluster_claims(claims)
+
     def build(
         self,
         *,

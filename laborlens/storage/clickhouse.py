@@ -220,6 +220,64 @@ class ClickHouseStore:
 
         return result.result_rows[0][0]
 
+    def information_series_on_date(
+        self,
+        series_ids: list[str],
+        information_date: date,
+    ) -> list[str]:
+        if not series_ids:
+            return []
+
+        result = self.client.query(
+            """
+            SELECT DISTINCT
+                series_id
+            FROM observations
+            WHERE
+                series_id IN %(series_ids)s
+                AND realtime_start
+                    = %(information_date)s
+            ORDER BY series_id
+            """,
+            parameters={
+                "series_ids": tuple(series_id.upper() for series_id in series_ids),
+                "information_date": information_date,
+            },
+        )
+
+        return [row[0] for row in result.result_rows]
+
+    def information_dates(
+        self,
+        series_ids: list[str],
+        start_date: date,
+        end_date: date,
+    ) -> list[date]:
+        if not series_ids:
+            return []
+
+        result = self.client.query(
+            """
+            SELECT DISTINCT
+                realtime_start
+            FROM observations
+            WHERE
+                series_id IN %(series_ids)s
+                AND realtime_start
+                    >= %(start_date)s
+                AND realtime_start
+                    <= %(end_date)s
+            ORDER BY realtime_start
+            """,
+            parameters={
+                "series_ids": tuple(series_id.upper() for series_id in series_ids),
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+
+        return [row[0] for row in result.result_rows]
+
     def as_of(
         self,
         series_id: str,
@@ -232,7 +290,10 @@ class ClickHouseStore:
 
                 argMax(
                     value,
-                    realtime_start
+                    tuple(
+                        realtime_start,
+                        ingested_at
+                    )
                 ) AS value,
 
                 max(
@@ -241,7 +302,10 @@ class ClickHouseStore:
 
                 argMax(
                     realtime_end,
-                    realtime_start
+                    tuple(
+                        realtime_start,
+                        ingested_at
+                    )
                 ) AS vintage_end
 
             FROM observations
@@ -252,9 +316,6 @@ class ClickHouseStore:
                 AND realtime_start
                     <= %(as_of_date)s
 
-                AND realtime_end
-                    >= %(as_of_date)s
-
             GROUP BY
                 observation_date
 
@@ -262,8 +323,8 @@ class ClickHouseStore:
                 observation_date
             """,
             parameters={
-                "series_id": (series_id.upper()),
-                "as_of_date": (as_of_date),
+                "series_id": series_id.upper(),
+                "as_of_date": as_of_date,
             },
         )
 
