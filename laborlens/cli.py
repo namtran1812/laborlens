@@ -192,5 +192,143 @@ def analyze(
         )
 
 
+@app.command()
+def compare(
+    left_series: str,
+    right_series: str,
+    query_date: str | None = typer.Option(
+        None,
+        "--date",
+        help="Use a shared historical information date.",
+    ),
+    latest: bool = typer.Option(
+        False,
+        "--latest",
+        help="Use each series' newest stored vintage.",
+    ),
+    window: int = typer.Option(
+        12,
+        "--window",
+    ),
+    threshold: float = typer.Option(
+        2.0,
+        "--threshold",
+    ),
+) -> None:
+    from laborlens.analysis.divergence import (
+        align_series,
+        compute_divergence,
+        divergence_anomalies,
+    )
+
+    left_series = left_series.upper()
+    right_series = right_series.upper()
+
+    if latest and query_date is not None:
+        raise typer.BadParameter("use either --latest or --date, not both")
+
+    if not latest and query_date is None:
+        raise typer.BadParameter("provide either --date YYYY-MM-DD or --latest")
+
+    store = ClickHouseStore(get_settings())
+
+    if latest:
+        left_date = store.latest_vintage_date(left_series)
+
+        right_date = store.latest_vintage_date(right_series)
+
+        if left_date is None:
+            raise typer.BadParameter(f"no observations stored for {left_series}")
+
+        if right_date is None:
+            raise typer.BadParameter(f"no observations stored for {right_series}")
+
+    else:
+        shared_date = date.fromisoformat(query_date)
+
+        left_date = shared_date
+        right_date = shared_date
+
+    left_rows = store.as_of(
+        left_series,
+        left_date,
+    )
+
+    right_rows = store.as_of(
+        right_series,
+        right_date,
+    )
+
+    left = [
+        (
+            row[0],
+            float(row[1]),
+        )
+        for row in left_rows
+        if row[1] is not None
+    ]
+
+    right = [
+        (
+            row[0],
+            float(row[1]),
+        )
+        for row in right_rows
+        if row[1] is not None
+    ]
+
+    aligned = align_series(
+        left,
+        right,
+    )
+
+    results = compute_divergence(
+        aligned,
+        window=window,
+    )
+
+    flagged = divergence_anomalies(
+        results,
+        threshold=threshold,
+    )
+
+    typer.echo(f"left={left_series}")
+
+    typer.echo(f"right={right_series}")
+
+    typer.echo(f"left_as_of={left_date}")
+
+    typer.echo(f"right_as_of={right_date}")
+
+    typer.echo(f"aligned_observations={len(aligned)}")
+
+    typer.echo(f"divergence_anomalies={len(flagged)}")
+
+    typer.echo("")
+
+    for point in flagged:
+        left_change = f"{point.left_change:.4%}" if point.left_change is not None else "None"
+
+        right_change = f"{point.right_change:.4%}" if point.right_change is not None else "None"
+
+        left_z = f"{point.left_change_z:.3f}" if point.left_change_z is not None else "None"
+
+        right_z = f"{point.right_change_z:.3f}" if point.right_change_z is not None else "None"
+
+        divergence = f"{point.divergence:.3f}" if point.divergence is not None else "None"
+
+        correlation = f"{point.correlation:.3f}" if point.correlation is not None else "None"
+
+        typer.echo(
+            f"{point.observation_date}\t"
+            f"{left_series}_change={left_change}\t"
+            f"{right_series}_change={right_change}\t"
+            f"{left_series}_z={left_z}\t"
+            f"{right_series}_z={right_z}\t"
+            f"div={divergence}\t"
+            f"corr={correlation}"
+        )
+
+
 if __name__ == "__main__":
     app()
