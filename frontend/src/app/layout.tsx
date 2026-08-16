@@ -4,6 +4,8 @@ import {
   Geist_Mono,
 } from "next/font/google";
 
+import { AppNav } from "@/components/AppNav";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -76,7 +78,16 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        {children}
+        <AppNav
+          mode={
+            process.env.NEXT_PUBLIC_LABORLENS_MODE ??
+            "demo"
+          }
+        />
+
+        <div className="min-h-[calc(100vh-86px)] flex-1 bg-[#090a09]">
+          {children}
+        </div>
       </body>
     </html>
   );

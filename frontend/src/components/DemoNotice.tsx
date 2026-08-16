@@ -10,30 +10,17 @@ export function DemoNotice({
   }
 
   return (
-    <div className="retro-window">
-      <div className="retro-titlebar-dark flex items-center justify-between px-3">
-        <span className="text-[10px] uppercase tracking-[0.14em]">
-          system message
-        </span>
+    <div className="mb-5 flex items-start gap-3 border-l-2 border-[#d6b45d] bg-[#11110d] px-4 py-3 text-[11px] leading-5 text-zinc-500">
+      <span className="mt-[6px] status-light status-amber" />
 
-        <span className="flex items-center gap-2 text-[9px] uppercase text-zinc-400">
-          <span className="status-light status-amber" />
-          demo snapshot
-        </span>
-      </div>
-
-      <div className="flex gap-3 bg-[#17150e] px-4 py-3 text-xs leading-6 text-[#d2ad58]">
-        <span>&gt;</span>
-
-        <span>
-          Hosted mode uses a validated frozen
-          historical research snapshot. Full
-          FRED/ALFRED ingestion, ClickHouse
-          point-in-time reconstruction, and local
-          AI inference remain available in the
-          repository.
-        </span>
-      </div>
+      <p>
+        Public demo uses a validated
+        historical snapshot. The full
+        repository supports live
+        FRED/ALFRED ingestion,
+        ClickHouse point-in-time
+        reconstruction, and local AI.
+      </p>
     </div>
   );
 }

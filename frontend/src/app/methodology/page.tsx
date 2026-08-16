@@ -2,7 +2,6 @@ import type {
   Metadata,
 } from "next";
 
-import { AppNav } from "@/components/AppNav";
 import { DemoNotice } from "@/components/DemoNotice";
 import { Window } from "@/components/retro/Window";
 import { getMeta } from "@/lib/api";
@@ -56,9 +55,7 @@ export default async function MethodologyPage() {
   const meta = await getMeta();
 
   return (
-    <main className="min-h-screen pb-10">
-      <AppNav mode={meta.mode} />
-
+    <main className="min-h-[calc(100vh-86px)] pb-10">
       <div className="desktop-shell py-5">
         <DemoNotice mode={meta.mode} />
 

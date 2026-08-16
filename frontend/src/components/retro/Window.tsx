@@ -15,43 +15,28 @@ export function Window({
   children,
   className = "",
   status,
-  darkTitle = false,
 }: Props) {
   return (
     <section
       className={`retro-window ${className}`}
     >
-      <div
-        className={[
-          darkTitle
-            ? "retro-titlebar-dark"
-            : "retro-titlebar",
-          "flex items-center justify-between px-3",
-        ].join(" ")}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className={[
-              "h-2.5 w-2.5 border",
-              darkTitle
-                ? "border-zinc-500 bg-zinc-700"
-                : "border-zinc-700 bg-zinc-300",
-            ].join(" ")}
-          />
+      <header className="retro-titlebar flex items-center justify-between px-4">
+        <div className="flex items-center gap-3">
+          <span className="h-[6px] w-[6px] bg-zinc-600" />
 
-          <span className="text-[10px] font-bold uppercase tracking-[0.14em]">
+          <span className="text-[9px] font-bold uppercase">
             {title}
           </span>
         </div>
 
         {status ? (
-          <span className="text-[9px] uppercase tracking-[0.12em] opacity-60">
+          <span className="text-[8px] uppercase text-zinc-700">
             {status}
           </span>
         ) : null}
-      </div>
+      </header>
 
-      <div className="p-4">
+      <div className="p-5">
         {children}
       </div>
     </section>

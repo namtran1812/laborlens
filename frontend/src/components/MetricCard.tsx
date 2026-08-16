@@ -10,17 +10,17 @@ export function MetricCard({
   detail,
 }: Props) {
   return (
-    <div className="retro-inset p-4">
+    <div className="border-l border-[#34362f] px-4 py-2 first:border-l-0">
       <div className="retro-label">
         {label}
       </div>
 
-      <div className="mt-3 font-mono text-xl font-bold text-zinc-100">
+      <div className="mt-2 text-lg font-bold text-zinc-100">
         {value}
       </div>
 
       {detail ? (
-        <div className="mt-2 text-[11px] text-zinc-500">
+        <div className="mt-1 text-[10px] text-zinc-600">
           {detail}
         </div>
       ) : null}

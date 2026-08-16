@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { AppNav } from "@/components/AppNav";
 import { DemoNotice } from "@/components/DemoNotice";
 import { MetricCard } from "@/components/MetricCard";
 import { RegimeBadge } from "@/components/RegimeBadge";
@@ -67,9 +66,7 @@ export default async function ReplayPage({
     data.reference_episode;
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <AppNav mode={meta.mode} />
-
+    <main className="min-h-[calc(100vh-86px)]">
       <div className="mx-auto max-w-6xl px-6 py-12">
         <DemoNotice mode={meta.mode} />
         <nav className="flex items-center justify-between">

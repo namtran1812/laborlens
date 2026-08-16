@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { AppNav } from "@/components/AppNav";
 import { AskLaborLens } from "@/components/AskLaborLens";
 import { DemoNotice } from "@/components/DemoNotice";
 import { EvidenceBars } from "@/components/EvidenceBars";
@@ -39,9 +38,7 @@ export default async function EpisodePage({
     detail.episode;
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <AppNav mode={meta.mode} />
-
+    <main className="min-h-[calc(100vh-86px)]">
       <div className="mx-auto max-w-6xl px-6 py-12">
         <DemoNotice
           mode={meta.mode}

@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { AppNav } from "@/components/AppNav";
 import { DemoNotice } from "@/components/DemoNotice";
 import { MetricCard } from "@/components/MetricCard";
 import { RegimeBadge } from "@/components/RegimeBadge";
@@ -21,9 +20,7 @@ export default async function Home() {
     data.episodes.at(-1);
 
   return (
-    <main className="min-h-screen pb-10">
-      <AppNav mode={meta.mode} />
-
+    <main className="min-h-[calc(100vh-86px)] pb-10">
       <div className="desktop-shell py-5">
         <DemoNotice mode={meta.mode} />
 
