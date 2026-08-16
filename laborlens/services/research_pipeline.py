@@ -16,6 +16,12 @@ from laborlens.research.episodes import (
 from laborlens.research.evidence import (
     build_evidence_bundle,
 )
+from laborlens.research.qcew_availability import (
+    available_qcew_release,
+)
+from laborlens.research.qcew_context import (
+    build_qcew_context,
+)
 from laborlens.research.research_bundle import (
     ProvenanceItem,
     ResearchBundle,
@@ -105,6 +111,9 @@ class ResearchPipeline:
         window: int = 24,
         min_confidence: float = 0.55,
         as_of_date: date | None = None,
+        qcew_area_fips: str | None = None,
+        qcew_industry_level: int = 6,
+        qcew_context_limit: int = 5,
     ) -> ResearchBundle:
         signals = {}
 
@@ -189,6 +198,39 @@ class ResearchPipeline:
                     )
                 )
 
+        cross_sectional_context = None
+
+        if qcew_area_fips is not None:
+            if as_of_date is not None:
+                release = available_qcew_release(as_of_date)
+
+                if release is not None:
+                    cross_sectional_context = build_qcew_context(
+                        self.store,
+                        area_fips=qcew_area_fips,
+                        year=(release.reference_year),
+                        quarter=(release.reference_quarter),
+                        industry_level=(qcew_industry_level),
+                        limit=(qcew_context_limit),
+                        context_mode=("point_in_time"),
+                        data_release_date=(release.full_data_release_date),
+                        requested_as_of_date=(as_of_date),
+                    )
+
+            else:
+                episode_quarter = (episode.start_date.month - 1) // 3 + 1
+
+                cross_sectional_context = build_qcew_context(
+                    self.store,
+                    area_fips=qcew_area_fips,
+                    year=episode.start_date.year,
+                    quarter=episode_quarter,
+                    industry_level=(qcew_industry_level),
+                    limit=qcew_context_limit,
+                    context_mode="retrospective",
+                    requested_as_of_date=None,
+                )
+
         return build_research_bundle(
             episode=episode,
             evidence=evidence,
@@ -196,4 +238,5 @@ class ResearchPipeline:
             regimes=regimes,
             all_episodes=episodes,
             provenance=provenance,
+            cross_sectional_context=(cross_sectional_context),
         )

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from laborlens.api.answer_guard import validate_ai_answer
 from laborlens.config import Settings
 from laborlens.research.research_bundle import ResearchBundle
 
@@ -17,116 +18,6 @@ class AssistantAnswer:
     caveat: str
 
 
-SUGGESTED_QUESTIONS = (
-    "Why was this episode first detected on July 30?",
-    "Which indicators contributed most?",
-    "How much did later revisions change the conclusion?",
-    "What does the 59-day detection latency mean?",
-    "Why does LaborLens use point-in-time data?",
-)
-
-
-def demo_answer(
-    question: str,
-) -> AssistantAnswer:
-    normalized = question.lower()
-
-    if "july 30" in normalized or "detected" in normalized:
-        answer = (
-            "The June 2024 contraction was not detectable through "
-            "the July 25 information state. On July 30, new JOLTS "
-            "information for JTSHIR and JTSJOL entered the available "
-            "information set. With those releases included, the episode "
-            "crossed LaborLens's detection criteria with an initial "
-            "regime score of -0.446 and confidence of 84.2%."
-        )
-        sources = (
-            "Replay state: 2024-07-25",
-            "Replay state: 2024-07-30",
-            "Release attribution: JTSHIR, JTSJOL",
-        )
-
-    elif "indicator" in normalized or "contribut" in normalized:
-        answer = (
-            "The strongest standardized supporting contribution was "
-            "PAYEMS at -0.85, followed by UNRATE at -0.66, ICSA at "
-            "-0.62, and JTSHIR at -0.33. These are standardized "
-            "directional contributions, not percentage changes in the "
-            "underlying economic series."
-        )
-        sources = (
-            "PAYEMS contribution: -0.850",
-            "UNRATE contribution: -0.659",
-            "ICSA contribution: -0.622",
-            "JTSHIR contribution: -0.326",
-        )
-
-    elif "revision" in normalized or "change" in normalized:
-        answer = (
-            "Later information changed the episode score only modestly. "
-            "The initial detected score was -0.446 and the final replay "
-            "score was -0.461, an absolute revision of about 0.015. "
-            "The episode survived every subsequent replay state, had "
-            "no claim-type flips, and its start and end boundaries did "
-            "not move."
-        )
-        sources = (
-            "Initial score: -0.4459",
-            "Final score: -0.4606",
-            "Survival rate: 100%",
-            "Claim-type flips: 0",
-        )
-
-    elif "59" in normalized or "latency" in normalized:
-        answer = (
-            "The 59-day detection latency is the difference between "
-            "the June 1 episode observation month and the July 30 "
-            "information state when enough released data existed for "
-            "LaborLens to identify the episode. It is not a 59-day "
-            "forecast delay; part of that latency reflects official "
-            "economic publication schedules."
-        )
-        sources = (
-            "Episode start: 2024-06-01",
-            "First detected as-of: 2024-07-30",
-            "Detection latency: 59 days",
-        )
-
-    elif "point-in-time" in normalized or "vintage" in normalized:
-        answer = (
-            "LaborLens uses point-in-time vintages to avoid hindsight "
-            "bias. Economic observations can be revised after their "
-            "initial release, so evaluating only today's final values "
-            "can give a historical model information that did not "
-            "actually exist at the time. LaborLens reconstructs the "
-            "vintage that was valid at each historical information date."
-        )
-        sources = (
-            "FRED/ALFRED vintage model",
-            "realtime_start / realtime_end reconstruction",
-        )
-
-    else:
-        answer = (
-            "For the public demo, LaborLens can answer questions about "
-            "the June 2024 contraction, its evidence, detection timing, "
-            "release attribution, revision behavior, and point-in-time "
-            "methodology. Try one of the suggested research questions."
-        )
-        sources = ("Validated June 2024 demo research bundle",)
-
-    return AssistantAnswer(
-        answer=answer,
-        mode="grounded-demo",
-        model="validated-research-snapshot",
-        sources=sources,
-        caveat=(
-            "The hosted demo uses validated, deterministic answers. "
-            "Live local AI inference is available in research mode."
-        ),
-    )
-
-
 def _bundle_context(
     bundle: ResearchBundle,
 ) -> str:
@@ -137,6 +28,37 @@ def _bundle_context(
     opposing = "\n".join(
         (f"- {item.series_id}: {item.contribution:.3f}") for item in bundle.evidence.opposing
     )
+
+    context = bundle.cross_sectional_context
+
+    if context is None:
+        qcew = "none"
+    else:
+        qcew_claims = "\n".join(
+            (
+                f"- {item.claim_type}: "
+                f"{item.industry_title}; "
+                f"local_yoy={item.local_yoy_growth:.1f}%; "
+                f"national_yoy="
+                f"{item.national_yoy_growth:.1f}%; "
+                f"relative_gap={item.relative_gap:.1f}pp; "
+                f"skeptic={item.skeptic_verdict}"
+            )
+            for item in context.claims
+        )
+
+        qcew = (
+            f"Area: {context.area_title}\n"
+            f"Period: {context.year} Q"
+            f"{context.quarter}\n"
+            f"Context mode: {context.context_mode}\n"
+            f"Release date: "
+            f"{context.data_release_date}\n"
+            f"Requested as-of: "
+            f"{context.requested_as_of_date}\n"
+            f"Validated claims:\n"
+            f"{qcew_claims or 'none'}"
+        )
 
     return f"""
 Episode:
@@ -160,19 +82,25 @@ Skeptic verdict:
 Skeptic score:
 {bundle.skeptic.score:.3f}
 
-Supporting evidence:
+Supporting macro evidence:
 {support or "none"}
 
-Opposing evidence:
+Opposing macro evidence:
 {opposing or "none"}
 
 Historical percentile:
 {bundle.historical_percentile:.3f}
 
+QCEW cross-sectional context:
+{qcew}
+
 Rules:
+- Use only verified values above.
 - Do not invent causes.
 - Do not invent statistics.
+- Do not infer sector causation from cross-sectional context.
 - Distinguish standardized contributions from natural-unit changes.
+- Respect the QCEW release date and requested as-of date.
 - State uncertainty and limitations.
 """.strip()
 
@@ -186,8 +114,42 @@ def ollama_answer(
     prompt = f"""
 You are the LaborLens research assistant.
 
-Answer only from the verified research context below.
-If the context does not establish something, say so explicitly.
+Your job is LANGUAGE SYNTHESIS ONLY.
+
+All economic facts must come from the verified context below.
+The deterministic LaborLens research engine has already
+performed the calculations and validation.
+
+STRICT RULES
+
+1. Use only facts explicitly present in VERIFIED CONTEXT.
+2. Never invent causes, mechanisms, events, policy explanations,
+   industry drivers, or external facts.
+3. Never describe standardized macro contributions as raw
+   economic values or percentage changes.
+4. PAYEMS, UNRATE, ICSA, JTSHIR, and similar numbers under
+   macro evidence are STANDARDIZED CONTRIBUTIONS.
+5. Do not infer that a national macro contraction means
+   employment contracted in Florida.
+6. QCEW claims are cross-sectional industry comparisons.
+   They provide context; they do not explain the macro episode.
+7. Do not generalize from listed industries to the entire
+   Florida economy.
+8. Do not use causal language such as "caused by",
+   "driven by", "because of", or "influenced by" unless
+   VERIFIED CONTEXT explicitly establishes that mechanism.
+9. If the user asks for an unsupported cause, say that the
+   verified evidence cannot establish it.
+10. Respect the historical information boundary.
+11. If QCEW evidence is mixed, acknowledge both weakness
+    and strength.
+12. Do not introduce statistics absent from the context.
+13. Distinguish:
+      - national macro evidence,
+      - Florida QCEW context,
+      - interpretation.
+14. Prefer "the evidence shows" or "is consistent with"
+    over unsupported explanations.
 
 VERIFIED CONTEXT
 ----------------
@@ -197,9 +159,19 @@ USER QUESTION
 -------------
 {question}
 
-Write a concise research answer.
-Do not introduce any unsupported dates, values, causal claims,
-or external facts.
+Use this structure:
+
+Direct answer:
+<1-2 sentences>
+
+Evidence:
+<only verified macro and QCEW facts>
+
+Interpretation:
+<what the evidence supports without causal inference>
+
+Limitations:
+<what the evidence does not establish>
 """.strip()
 
     response = httpx.post(
@@ -210,7 +182,7 @@ or external facts.
             "stream": False,
             "think": False,
             "options": {
-                "temperature": 0.1,
+                "temperature": 0.0,
             },
         },
         timeout=90.0,
@@ -230,10 +202,47 @@ or external facts.
     if not answer:
         raise RuntimeError("Ollama returned an empty assistant response")
 
+    guard = validate_ai_answer(answer)
+
+    if not guard.valid:
+        raise RuntimeError("AI answer failed grounding validation: " + "; ".join(guard.violations))
+
+    sources: list[str] = [item.series_id for item in bundle.evidence.supporting]
+
+    context = bundle.cross_sectional_context
+
+    if context is not None:
+        release = (
+            f", released {context.data_release_date}"
+            if context.data_release_date is not None
+            else ""
+        )
+
+        sources.extend(
+            (
+                f"QCEW {context.year} "
+                f"Q{context.quarter}"
+                f"{release}: "
+                f"{item.industry_title}; "
+                f"local YoY "
+                f"{item.local_yoy_growth:.1f}%, "
+                f"US YoY "
+                f"{item.national_yoy_growth:.1f}%, "
+                f"relative gap "
+                f"{item.relative_gap:.1f} pp"
+            )
+            for item in context.claims
+        )
+
     return AssistantAnswer(
         answer=answer,
         mode="local-ai",
         model=settings.laborlens_model,
-        sources=tuple(item.series_id for item in bundle.evidence.supporting),
-        caveat=("AI explanation generated from a verified LaborLens research bundle."),
+        sources=tuple(sources),
+        caveat=(
+            "AI explanation generated only from a "
+            "deterministically verified LaborLens "
+            "research bundle. Cross-sectional QCEW "
+            "context does not establish causation."
+        ),
     )

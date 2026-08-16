@@ -8,6 +8,7 @@ from laborlens.analysis.regime import RegimePoint
 from laborlens.research.claims import CandidateClaim
 from laborlens.research.episodes import ClaimEpisode
 from laborlens.research.evidence import EvidenceBundle
+from laborlens.research.qcew_context import CrossSectionalContext
 from laborlens.research.skeptic import SkepticVerdict
 
 
@@ -49,6 +50,8 @@ class ResearchBundle:
     historical_analogs: tuple[HistoricalAnalog, ...]
 
     provenance: tuple[ProvenanceItem, ...]
+
+    cross_sectional_context: CrossSectionalContext | None = None
 
 
 def historical_percentile(
@@ -111,6 +114,7 @@ def build_research_bundle(
     regimes: list[RegimePoint],
     all_episodes: list[ClaimEpisode],
     provenance: list[ProvenanceItem],
+    cross_sectional_context: CrossSectionalContext | None = None,
 ) -> ResearchBundle:
     episode_regimes = [
         point
@@ -161,4 +165,5 @@ def build_research_bundle(
         historical_end_date=historical_end_date,
         historical_analogs=analogs,
         provenance=tuple(provenance),
+        cross_sectional_context=cross_sectional_context,
     )

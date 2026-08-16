@@ -80,6 +80,67 @@ def write_deterministic_article(
             ]
         )
 
+    if bundle.cross_sectional_context is not None and bundle.cross_sectional_context.claims:
+        context = bundle.cross_sectional_context
+
+        release_suffix = (
+            f", released {context.data_release_date}"
+            if context.data_release_date is not None
+            else ""
+        )
+
+        lines.extend(
+            [
+                "",
+                "## Industry and geographic context",
+                "",
+                (
+                    f"QCEW context for "
+                    f"{context.area_title}, "
+                    f"{context.year} Q{context.quarter}"
+                    f"{release_suffix}:"
+                ),
+                "",
+            ]
+        )
+
+        for item in context.claims:
+            lines.append(
+                f"- **{item.industry_title}**: "
+                f"{item.evidence_text} "
+                f"(skeptic: {item.skeptic_verdict})"
+            )
+
+        lines.append("")
+
+        if context.context_mode == "point_in_time":
+            availability = (
+                "These QCEW observations were publicly "
+                "available by the requested historical "
+                "information date"
+            )
+
+            if context.requested_as_of_date is not None:
+                availability += f" ({context.requested_as_of_date})"
+
+            availability += (
+                ". They provide cross-sectional context "
+                "only and do not establish that these "
+                "industries caused the macro episode."
+            )
+
+            lines.append(availability)
+
+        else:
+            lines.append(
+                "These QCEW comparisons are retrospective "
+                "context and were not constrained by a "
+                "historical information date. They provide "
+                "cross-sectional context only and do not "
+                "establish that these industries caused "
+                "the macro episode."
+            )
+
     lines.extend(
         [
             "",

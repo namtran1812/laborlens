@@ -8,7 +8,11 @@ import typer
 from laborlens.analysis.features import SeriesPoint, anomalies, compute_features
 from laborlens.config import get_settings
 from laborlens.data.fred import FredClient
+from laborlens.data.qcew import QcewClient
 from laborlens.services.ingestion import IngestionService
+from laborlens.services.qcew_claim_pipeline import QcewClaimPipeline
+from laborlens.services.qcew_ingestion import QcewIngestionService
+from laborlens.services.qcew_research import QcewResearchService
 from laborlens.storage.clickhouse import ClickHouseStore
 
 app = typer.Typer(
@@ -1459,6 +1463,215 @@ def backtest(
     typer.echo(f"  mean_family_start_drift_months={result.mean_family_start_drift_months}")
 
     typer.echo(f"  mean_family_end_drift_months={result.mean_family_end_drift_months}")
+
+
+@app.command("ingest-qcew")
+def ingest_qcew(
+    year: int = typer.Option(
+        ...,
+        "--year",
+        min=1975,
+        help="QCEW publication year.",
+    ),
+    quarter: int = typer.Option(
+        ...,
+        "--quarter",
+        min=1,
+        max=4,
+        help="QCEW quarter.",
+    ),
+    batch_size: int = typer.Option(
+        25_000,
+        "--batch-size",
+        min=1_000,
+        max=250_000,
+        help="ClickHouse insert batch size.",
+    ),
+) -> None:
+    """Download and ingest one real BLS QCEW quarterly publication."""
+
+    settings = get_settings()
+
+    store = ClickHouseStore(settings)
+
+    service = QcewIngestionService(
+        QcewClient(),
+        store,
+    )
+
+    result = asyncio.run(
+        service.ingest_quarter(
+            year,
+            quarter,
+            batch_size=batch_size,
+        )
+    )
+
+    typer.echo(f"year={result.year}")
+
+    typer.echo(f"quarter={result.quarter}")
+
+    typer.echo(f"rows_received={result.rows_received}")
+
+    typer.echo(f"rows_valid={result.rows_valid}")
+
+    typer.echo(f"rows_inserted={result.rows_inserted}")
+
+
+@app.command("compare-qcew")
+def compare_qcew(
+    area_fips: str = typer.Option(
+        ...,
+        "--area",
+        help="QCEW area FIPS code.",
+    ),
+    year: int = typer.Option(
+        ...,
+        "--year",
+    ),
+    quarter: int = typer.Option(
+        ...,
+        "--quarter",
+        min=1,
+        max=4,
+    ),
+    minimum_employment: int = typer.Option(
+        10_000,
+        "--minimum-employment",
+        min=0,
+    ),
+    industry_level: int = typer.Option(
+        6,
+        "--industry-level",
+        min=2,
+        max=6,
+        help="NAICS industry depth.",
+    ),
+    limit: int = typer.Option(
+        25,
+        "--limit",
+        min=1,
+        max=500,
+    ),
+) -> None:
+    """Compare local industries against national QCEW growth."""
+
+    settings = get_settings()
+
+    service = QcewResearchService(ClickHouseStore(settings))
+
+    results = service.compare_area_to_national(
+        area_fips=area_fips,
+        year=year,
+        quarter=quarter,
+        minimum_employment=minimum_employment,
+        industry_level=industry_level,
+    )
+
+    typer.echo("industry\tlocal_emp\tlocal_yoy\tnational_yoy\trelative\tlq\tweakening")
+
+    for result in results[:limit]:
+        local_yoy = (
+            f"{result.local_yoy_growth:.1f}" if result.local_yoy_growth is not None else "n/a"
+        )
+        national_yoy = (
+            f"{result.national_yoy_growth:.1f}" if result.national_yoy_growth is not None else "n/a"
+        )
+        relative = f"{result.relative_growth:.1f}" if result.relative_growth is not None else "n/a"
+        lq = (
+            f"{result.local_location_quotient:.2f}"
+            if result.local_location_quotient is not None
+            else "n/a"
+        )
+        score = f"{result.weakening_score:.2f}" if result.weakening_score is not None else "n/a"
+
+        typer.echo(
+            f"{result.industry_code}\t"
+            f"{result.comparison_type}\t"
+            f"{result.industry_title}\t"
+            f"{result.local_employment}\t"
+            f"{local_yoy}\t"
+            f"{national_yoy}\t"
+            f"{relative}\t"
+            f"{lq}\t"
+            f"{score}"
+        )
+
+
+@app.command("qcew-claims")
+def qcew_claims(
+    area_fips: str = typer.Option(
+        ...,
+        "--area",
+    ),
+    year: int = typer.Option(
+        ...,
+        "--year",
+    ),
+    quarter: int = typer.Option(
+        ...,
+        "--quarter",
+        min=1,
+        max=4,
+    ),
+    industry_level: int = typer.Option(
+        6,
+        "--industry-level",
+        min=2,
+        max=6,
+    ),
+    minimum_employment: int = typer.Option(
+        10_000,
+        "--minimum-employment",
+        min=0,
+    ),
+    minimum_relative_gap: float = typer.Option(
+        2.0,
+        "--minimum-relative-gap",
+        min=0.0,
+    ),
+    limit: int = typer.Option(
+        10,
+        "--limit",
+        min=1,
+        max=100,
+    ),
+) -> None:
+    """Discover validated cross-sectional QCEW claims."""
+
+    pipeline = QcewClaimPipeline(ClickHouseStore(get_settings()))
+
+    results = pipeline.discover(
+        area_fips=area_fips,
+        year=year,
+        quarter=quarter,
+        industry_level=industry_level,
+        minimum_employment=minimum_employment,
+        minimum_relative_gap=minimum_relative_gap,
+        limit=limit,
+    )
+
+    typer.echo(f"validated_claims={len(results)}")
+    typer.echo("")
+
+    for result in results:
+        claim = result.claim
+
+        typer.echo(
+            f"{claim.claim_type}\t"
+            f"{claim.industry_code}\t"
+            f"skeptic={result.skeptic.verdict}\t"
+            f"strength={claim.strength:.2f}"
+        )
+
+        typer.echo(f"  {claim.headline}")
+
+        typer.echo(f"  {claim.evidence_text}")
+
+        if claim.location_quotient is not None:
+            typer.echo(f"  location_quotient={claim.location_quotient:.2f}")
+
+        typer.echo("")
 
 
 if __name__ == "__main__":

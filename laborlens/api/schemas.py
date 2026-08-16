@@ -22,6 +22,17 @@ class AskRequest(BaseModel):
         ge=0.0,
         le=1.0,
     )
+    area: str | None = None
+    industry_level: int = Field(
+        default=6,
+        ge=2,
+        le=6,
+    )
+    context_limit: int = Field(
+        default=5,
+        ge=1,
+        le=25,
+    )
 
 
 class AskResponse(BaseModel):
@@ -30,13 +41,3 @@ class AskResponse(BaseModel):
     model: str
     sources: list[str]
     caveat: str
-
-
-class ProductMeta(BaseModel):
-    name: str
-    version: str
-    mode: str
-    research_engine: str
-    ai_available: bool
-    ai_provider: str | None
-    suggested_questions: list[str]

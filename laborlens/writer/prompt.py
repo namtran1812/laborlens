@@ -27,6 +27,7 @@ Hard rules:
 11. Do not infer job losses, layoffs, hiring freezes, recession, policy
     causes, or sector effects unless explicitly present in the bundle.
 12. Avoid sensational language.
+13. QCEW cross-sectional context describes industry/geographic patterns; it does not establish the cause of the macro episode.
 
 Write concise economic journalism.
 
@@ -51,6 +52,8 @@ Required structure:
 def bundle_payload(
     bundle: ResearchBundle,
 ) -> dict:
+    context = bundle.cross_sectional_context
+
     return {
         "episode": {
             "id": bundle.episode_id,
@@ -59,9 +62,9 @@ def bundle_payload(
             "duration_months": (bundle.duration_months),
         },
         "claim": {
-            "headline": (bundle.claim.headline),
-            "type": (bundle.claim.claim_type),
-            "confidence": (bundle.claim.confidence),
+            "headline": bundle.claim.headline,
+            "type": bundle.claim.claim_type,
+            "confidence": bundle.claim.confidence,
         },
         "statistics": {
             "mean_episode_score": (bundle.mean_episode_score),
@@ -69,8 +72,8 @@ def bundle_payload(
             "historical_percentile": (bundle.historical_percentile),
         },
         "skeptic": {
-            "verdict": (bundle.skeptic.verdict),
-            "score": (bundle.skeptic.score),
+            "verdict": bundle.skeptic.verdict,
+            "score": bundle.skeptic.score,
             "findings": [
                 {
                     "code": finding.code,
@@ -84,29 +87,69 @@ def bundle_payload(
             "supporting": [
                 {
                     "series_id": item.series_id,
-                    "contribution": (item.contribution),
+                    "contribution": item.contribution,
                 }
                 for item in bundle.evidence.supporting
             ],
             "opposing": [
                 {
                     "series_id": item.series_id,
-                    "contribution": (item.contribution),
+                    "contribution": item.contribution,
                 }
                 for item in bundle.evidence.opposing
             ],
-            "breadth": (bundle.evidence.breadth),
+            "breadth": bundle.evidence.breadth,
         },
         "historical_analogs": [
             {
                 "start_date": (analog.start_date.isoformat()),
                 "end_date": (analog.end_date.isoformat()),
                 "score": analog.score,
-                "confidence": (analog.confidence),
+                "confidence": analog.confidence,
                 "duration_months": (analog.duration_months),
             }
             for analog in bundle.historical_analogs
         ],
+        "cross_sectional_context": (
+            {
+                "area_fips": context.area_fips,
+                "area_title": context.area_title,
+                "year": context.year,
+                "quarter": context.quarter,
+                "industry_level": (context.industry_level),
+                "context_mode": (context.context_mode),
+                "data_release_date": (
+                    context.data_release_date.isoformat()
+                    if context.data_release_date is not None
+                    else None
+                ),
+                "requested_as_of_date": (
+                    context.requested_as_of_date.isoformat()
+                    if context.requested_as_of_date is not None
+                    else None
+                ),
+                "claims": [
+                    {
+                        "claim_type": (item.claim_type),
+                        "industry_code": (item.industry_code),
+                        "industry_title": (item.industry_title),
+                        "local_employment": (item.local_employment),
+                        "local_yoy_growth": (item.local_yoy_growth),
+                        "national_yoy_growth": (item.national_yoy_growth),
+                        "relative_gap": (item.relative_gap),
+                        "location_quotient": (item.location_quotient),
+                        "strength": item.strength,
+                        "skeptic_verdict": (item.skeptic_verdict),
+                        "skeptic_score": (item.skeptic_score),
+                        "headline": item.headline,
+                        "evidence_text": (item.evidence_text),
+                    }
+                    for item in context.claims
+                ],
+            }
+            if context is not None
+            else None
+        ),
         "provenance": [
             {
                 "series_id": item.series_id,
