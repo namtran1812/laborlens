@@ -110,5 +110,76 @@ def as_of(
         typer.echo(f"{row[0]}\t{row[1]}\t{row[2]}..{row[3]}")
 
 
+@app.command()
+def analyze(
+    series_id: str,
+    query_date: str = typer.Option(
+        ...,
+        "--date",
+        help="Historical information date.",
+    ),
+    window: int = typer.Option(
+        12,
+        "--window",
+    ),
+    threshold: float = typer.Option(
+        2.0,
+        "--threshold",
+    ),
+) -> None:
+    from laborlens.analysis.features import (
+        SeriesPoint,
+        anomalies,
+        compute_features,
+    )
+
+    settings = get_settings()
+
+    store = ClickHouseStore(settings)
+
+    rows = store.as_of(
+        series_id.upper(),
+        date.fromisoformat(query_date),
+    )
+
+    points = [
+        SeriesPoint(
+            observation_date=row[0],
+            value=float(row[1]),
+        )
+        for row in rows
+        if row[1] is not None
+    ]
+
+    features = compute_features(
+        points,
+        rolling_window=window,
+    )
+
+    flagged = anomalies(
+        features,
+        threshold=threshold,
+    )
+
+    typer.echo(f"series={series_id.upper()}")
+
+    typer.echo(f"as_of={query_date}")
+
+    typer.echo(f"observations={len(points)}")
+
+    typer.echo(f"anomalies={len(flagged)}")
+
+    typer.echo("")
+
+    for point in flagged:
+        typer.echo(
+            f"{point.observation_date}\t"
+            f"value={point.value:.4f}\t"
+            f"z={point.z_score:.3f}\t"
+            f"delta1={point.delta_1}\t"
+            f"accel={point.acceleration}"
+        )
+
+
 if __name__ == "__main__":
     app()
