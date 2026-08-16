@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { AppNav } from "@/components/AppNav";
 import { DemoNotice } from "@/components/DemoNotice";
 import { getMeta } from "@/lib/api";
+
+export const metadata: Metadata = {
+  title: "Methodology",
+  description:
+    "How LaborLens performs point-in-time reconstruction, regime detection, evidence validation, release-aware replay, and grounded AI interpretation.",
+};
 
 export default async function MethodologyPage() {
   const meta = await getMeta();

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AppNav } from "@/components/AppNav";
@@ -6,6 +7,12 @@ import { MetricCard } from "@/components/MetricCard";
 import { RegimeBadge } from "@/components/RegimeBadge";
 import { ReplayTimeline } from "@/components/ReplayTimeline";
 import { getMeta, getReplay } from "@/lib/api";
+
+export const metadata: Metadata = {
+  title: "Replay Explorer",
+  description:
+    "Reconstruct historical information states and see when LaborLens first detected an economic episode as official releases arrived.",
+};
 
 type SearchParams = Promise<
   Record<
