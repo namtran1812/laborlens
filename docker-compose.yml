@@ -1,7 +1,6 @@
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
-    container_name: laborlens-clickhouse
 
     ports:
       - "8123:8123"
