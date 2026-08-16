@@ -6,7 +6,9 @@ from typing import Annotated
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from laborlens.analysis.regime import DEFAULT_SPECS
 from laborlens.config import get_settings
+from laborlens.evaluation.replay import evaluate_replay
 from laborlens.services.research_pipeline import ResearchPipeline
 from laborlens.storage.clickhouse import ClickHouseStore
 from laborlens.writer.deterministic_writer import write_deterministic_article
@@ -189,4 +191,149 @@ def article(
     return {
         "episode_id": (bundle.episode.episode_id),
         "article": (write_deterministic_article(bundle)),
+    }
+
+
+@app.get("/replay")
+def replay(
+    from_date: Annotated[
+        date,
+        Query(alias="from"),
+    ],
+    to_date: Annotated[
+        date,
+        Query(alias="to"),
+    ],
+    target: Annotated[
+        date,
+        Query(),
+    ],
+    schedule: Annotated[
+        str,
+        Query(pattern="^(releases|fixed)$"),
+    ] = "releases",
+    step_days: Annotated[
+        int,
+        Query(ge=1, le=365),
+    ] = 30,
+    window: Annotated[
+        int,
+        Query(ge=6, le=60),
+    ] = 24,
+    min_confidence: Annotated[
+        float,
+        Query(ge=0.0, le=1.0),
+    ] = 0.55,
+) -> dict:
+    if from_date > to_date:
+        raise HTTPException(
+            status_code=400,
+            detail=("'from' cannot be later than 'to'"),
+        )
+
+    store = ClickHouseStore(get_settings())
+
+    research_pipeline = ResearchPipeline(store)
+
+    evaluation_dates = None
+
+    if schedule == "releases":
+        evaluation_dates = store.information_dates(
+            list(DEFAULT_SPECS.keys()),
+            from_date,
+            to_date,
+        )
+
+        if not evaluation_dates:
+            raise HTTPException(
+                status_code=404,
+                detail=("No release information dates found in range"),
+            )
+
+    try:
+        result = evaluate_replay(
+            research_pipeline,
+            start_date=from_date,
+            end_date=to_date,
+            target_date=target,
+            step_days=step_days,
+            window=window,
+            min_confidence=min_confidence,
+            evaluation_dates=evaluation_dates,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    release_series = []
+
+    if schedule == "releases" and result.first_detected_as_of is not None:
+        release_series = store.information_series_on_date(
+            list(DEFAULT_SPECS.keys()),
+            result.first_detected_as_of,
+        )
+
+    reference = result.reference_episode
+
+    return {
+        "target": target,
+        "schedule": schedule,
+        "from_date": from_date,
+        "to_date": to_date,
+        "reference_episode": (
+            {
+                "episode_id": (reference.episode_id),
+                "claim_type": (reference.claim_type),
+                "start_date": (reference.start_date),
+                "end_date": (reference.end_date),
+                "headline": (reference.representative.headline),
+                "score": (reference.representative.score),
+                "confidence": (reference.peak_confidence),
+            }
+            if reference is not None
+            else None
+        ),
+        "states": [
+            {
+                "as_of_date": (state.as_of_date),
+                "detected": (state.episode is not None),
+                "episode": (
+                    {
+                        "episode_id": (state.episode.episode_id),
+                        "claim_type": (state.episode.claim_type),
+                        "start_date": (state.episode.start_date),
+                        "end_date": (state.episode.end_date),
+                        "score": (state.episode.representative.score),
+                        "confidence": (state.episode.peak_confidence),
+                    }
+                    if state.episode is not None
+                    else None
+                ),
+            }
+            for state in result.tracked
+        ],
+        "metrics": {
+            "replay_dates": (result.replay_dates),
+            "detected_states": (result.detected_states),
+            "missing_states": (result.missing_states),
+            "first_detected_as_of": (result.first_detected_as_of),
+            "previous_information_state": (result.previous_information_state),
+            "last_detected_as_of": (result.last_detected_as_of),
+            "detection_release_series": (release_series),
+            "detection_latency_days": (result.detection_latency_days),
+            "survival_rate": (result.survival_rate),
+            "claim_type_flips": (result.claim_type_flips),
+            "initial_score": (result.initial_score),
+            "final_score": (result.final_score),
+            "absolute_score_revision": (result.absolute_score_revision),
+            "initial_confidence": (result.initial_confidence),
+            "final_confidence": (result.final_confidence),
+            "mean_score_drift": (result.mean_score_drift),
+            "max_score_drift": (result.max_score_drift),
+            "start_drift_months": (result.start_drift_months),
+            "end_drift_months": (result.end_drift_months),
+        },
     }
