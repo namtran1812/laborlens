@@ -43,6 +43,9 @@ class ResearchBundle:
     peak_episode_score: float
 
     historical_percentile: float
+    comparable_observation_count: int
+    historical_start_date: date | None
+    historical_end_date: date | None
     historical_analogs: tuple[HistoricalAnalog, ...]
 
     provenance: tuple[ProvenanceItem, ...]
@@ -127,10 +130,16 @@ def build_research_bundle(
 
         peak_score = episode.representative.score
 
+    comparable = [point for point in regimes if point.coverage >= 0.8]
+
     percentile = historical_percentile(
         episode.representative.score,
-        regimes,
+        comparable,
     )
+
+    historical_start_date = comparable[0].observation_date if comparable else None
+
+    historical_end_date = comparable[-1].observation_date if comparable else None
 
     analogs = find_historical_analogs(
         episode,
@@ -147,6 +156,9 @@ def build_research_bundle(
         mean_episode_score=mean_score,
         peak_episode_score=peak_score,
         historical_percentile=percentile,
+        comparable_observation_count=len(comparable),
+        historical_start_date=historical_start_date,
+        historical_end_date=historical_end_date,
         historical_analogs=analogs,
         provenance=tuple(provenance),
     )

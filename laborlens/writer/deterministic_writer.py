@@ -86,10 +86,30 @@ def write_deterministic_article(
             "## Historical context",
             "",
             (
-                f"The episode ranked at the "
-                f"{bundle.historical_percentile:.1%} "
-                f"historical percentile within the comparable "
-                f"observations evaluated by LaborLens."
+                (
+                    f"The episode was the most extreme among "
+                    f"{bundle.comparable_observation_count} "
+                    f"comparable regime observations"
+                )
+                if (
+                    bundle.historical_percentile >= 0.999
+                    and bundle.comparable_observation_count < 20
+                )
+                else (
+                    f"The episode ranked at the "
+                    f"{bundle.historical_percentile * 100:.1f}th "
+                    f"percentile among "
+                    f"{bundle.comparable_observation_count} "
+                    f"comparable regime observations"
+                )
+            )
+            + (
+                f" spanning {bundle.historical_start_date} through {bundle.historical_end_date}."
+                if (
+                    bundle.historical_start_date is not None
+                    and bundle.historical_end_date is not None
+                )
+                else "."
             ),
             "",
         ]

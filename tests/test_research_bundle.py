@@ -199,3 +199,49 @@ def test_build_research_bundle() -> None:
     assert bundle.duration_months == 1
     assert bundle.skeptic.verdict == "supported"
     assert len(bundle.provenance) == 1
+
+
+def test_bundle_tracks_historical_scope() -> None:
+    target = episode(
+        "target-scope",
+        2,
+        -0.7,
+    )
+
+    evidence = EvidenceBundle(
+        episode_id="target-scope",
+        claim_type="broad_contraction",
+        start_date=date(2024, 2, 1),
+        end_date=date(2024, 2, 1),
+        headline="test",
+        score=-0.7,
+        dispersion=0.2,
+        coverage=1.0,
+        confidence=0.9,
+        supporting=(),
+        opposing=(),
+        breadth=1.0,
+    )
+
+    skeptic = SkepticVerdict(
+        verdict="supported",
+        score=0.9,
+        findings=(),
+    )
+
+    bundle = build_research_bundle(
+        episode=target,
+        evidence=evidence,
+        skeptic=skeptic,
+        regimes=[
+            regime_point(1, -0.3),
+            regime_point(2, -0.7),
+            regime_point(3, -0.4),
+        ],
+        all_episodes=[target],
+        provenance=[],
+    )
+
+    assert bundle.comparable_observation_count == 3
+    assert bundle.historical_start_date == date(2024, 1, 1)
+    assert bundle.historical_end_date == date(2024, 3, 1)

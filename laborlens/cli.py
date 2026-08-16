@@ -873,6 +873,10 @@ def bundle(
 
     typer.echo(f"historical_percentile={research.historical_percentile:.1%}")
 
+    typer.echo(f"historical_comparisons={research.comparable_observation_count}")
+
+    typer.echo(f"historical_range={research.historical_start_date}..{research.historical_end_date}")
+
     typer.echo(f"mean_episode_score={research.mean_episode_score:.3f}")
 
     typer.echo(f"peak_episode_score={research.peak_episode_score:.3f}")
@@ -1036,43 +1040,43 @@ def backfill_vintages(
     vintage_start: str = typer.Option(
         ...,
         "--vintage-start",
+        help="Earliest FRED revision/release date.",
     ),
     vintage_end: str = typer.Option(
         ...,
         "--vintage-end",
+        help="Latest FRED revision/release date.",
     ),
-    step_days: int = typer.Option(
-        30,
-        "--step-days",
+    batch_size: int = typer.Option(
+        250,
+        "--batch-size",
+        help="Vintage dates fetched per observations request.",
     ),
 ) -> None:
-    from datetime import timedelta
-
     from laborlens.services.vintage_backfill import (
         VintageBackfillService,
     )
 
-    if step_days < 1:
-        raise typer.BadParameter("--step-days must be positive")
+    if batch_size < 1:
+        raise typer.BadParameter("--batch-size must be positive")
 
     try:
         observation_start = date.fromisoformat(from_date)
 
         observation_end = date.fromisoformat(to_date)
 
-        current = date.fromisoformat(vintage_start)
+        resolved_vintage_start = date.fromisoformat(vintage_start)
 
-        end = date.fromisoformat(vintage_end)
+        resolved_vintage_end = date.fromisoformat(vintage_end)
 
     except ValueError as exc:
         raise typer.BadParameter("dates must use YYYY-MM-DD") from exc
 
-    vintages = []
+    if observation_start > observation_end:
+        raise typer.BadParameter("--from cannot be later than --to")
 
-    while current <= end:
-        vintages.append(current)
-
-        current += timedelta(days=step_days)
+    if resolved_vintage_start > resolved_vintage_end:
+        raise typer.BadParameter("--vintage-start cannot be later than --vintage-end")
 
     settings = get_settings()
 
@@ -1081,20 +1085,22 @@ def backfill_vintages(
         ClickHouseStore(settings),
     )
 
-    count = asyncio.run(
-        service.backfill(
+    vintage_count, inserted = asyncio.run(
+        service.backfill_release_dates(
             series_id,
-            vintage_dates=vintages,
-            observation_start=observation_start,
-            observation_end=observation_end,
+            vintage_start=(resolved_vintage_start),
+            vintage_end=(resolved_vintage_end),
+            observation_start=(observation_start),
+            observation_end=(observation_end),
+            batch_size=batch_size,
         )
     )
 
     typer.echo(f"series={series_id.upper()}")
 
-    typer.echo(f"vintages={len(vintages)}")
+    typer.echo(f"release_vintages={vintage_count}")
 
-    typer.echo(f"inserted={count}")
+    typer.echo(f"inserted={inserted}")
 
 
 if __name__ == "__main__":

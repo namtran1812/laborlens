@@ -26,6 +26,12 @@ def _allowed_dates(
         bundle.claim.observation_date.isoformat(),
     }
 
+    if bundle.historical_start_date is not None:
+        allowed.add(bundle.historical_start_date.isoformat())
+
+    if bundle.historical_end_date is not None:
+        allowed.add(bundle.historical_end_date.isoformat())
+
     for analog in bundle.historical_analogs:
         allowed.add(analog.start_date.isoformat())
         allowed.add(analog.end_date.isoformat())
@@ -50,7 +56,9 @@ def _allowed_numbers(
         bundle.mean_episode_score,
         bundle.peak_episode_score,
         bundle.historical_percentile,
+        bundle.historical_percentile * 100.0,
         float(bundle.duration_months),
+        float(bundle.comparable_observation_count),
     }
 
     for item in bundle.evidence.supporting:

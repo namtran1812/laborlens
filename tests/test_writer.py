@@ -84,6 +84,9 @@ def bundle() -> ResearchBundle:
         mean_episode_score=-0.505,
         peak_episode_score=-0.566,
         historical_percentile=0.868,
+        comparable_observation_count=10,
+        historical_start_date=date(2023, 1, 1),
+        historical_end_date=date(2024, 6, 1),
         historical_analogs=(),
         provenance=(),
     )

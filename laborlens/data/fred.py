@@ -162,3 +162,58 @@ class FredClient:
             )
 
         return observations
+
+    async def vintage_dates(
+        self,
+        series_id: str,
+        *,
+        realtime_start: date | None = None,
+        realtime_end: date | None = None,
+    ) -> list[date]:
+        import httpx
+
+        limit = 1000
+        offset = 0
+        result: list[date] = []
+
+        async with httpx.AsyncClient(
+            timeout=30.0,
+        ) as client:
+            while True:
+                params = {
+                    "series_id": series_id.upper(),
+                    "api_key": self.api_key,
+                    "file_type": "json",
+                    "limit": limit,
+                    "offset": offset,
+                    "sort_order": "asc",
+                }
+
+                if realtime_start is not None:
+                    params["realtime_start"] = realtime_start.isoformat()
+
+                if realtime_end is not None:
+                    params["realtime_end"] = realtime_end.isoformat()
+
+                response = await client.get(
+                    ("https://api.stlouisfed.org/fred/series/vintagedates"),
+                    params=params,
+                )
+
+                response.raise_for_status()
+
+                payload = response.json()
+
+                values = payload.get(
+                    "vintage_dates",
+                    [],
+                )
+
+                result.extend(date.fromisoformat(value) for value in values)
+
+                if len(values) < limit:
+                    break
+
+                offset += limit
+
+        return result
