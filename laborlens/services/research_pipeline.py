@@ -36,12 +36,27 @@ class ResearchPipeline:
     ) -> None:
         self.store = store
 
+    def _rows_for_series(
+        self,
+        series_id: str,
+        *,
+        as_of_date: date | None,
+    ) -> list[tuple]:
+        if as_of_date is None:
+            return self.store.latest_snapshot(series_id)
+
+        return self.store.as_of(
+            series_id,
+            as_of_date,
+        )
+
     def build(
         self,
         *,
         start_date: date,
         window: int = 24,
         min_confidence: float = 0.55,
+        as_of_date: date | None = None,
     ) -> ResearchBundle:
         signals = {}
 
@@ -49,7 +64,10 @@ class ResearchPipeline:
             series_id,
             spec,
         ) in DEFAULT_SPECS.items():
-            rows = self.store.latest_snapshot(series_id)
+            rows = self._rows_for_series(
+                series_id,
+                as_of_date=as_of_date,
+            )
 
             if not rows:
                 continue
@@ -73,7 +91,7 @@ class ResearchPipeline:
 
         claims = discover_claims(
             regimes,
-            min_confidence=(min_confidence),
+            min_confidence=min_confidence,
         )
 
         episodes = cluster_claims(claims)
@@ -81,7 +99,9 @@ class ResearchPipeline:
         matches = [episode for episode in episodes if (episode.start_date == start_date)]
 
         if not matches:
-            raise ValueError(f"no research episode starts on {start_date}")
+            mode = f" as of {as_of_date}" if as_of_date is not None else ""
+
+            raise ValueError(f"no research episode starts on {start_date}{mode}")
 
         episode = matches[0]
 
@@ -92,11 +112,20 @@ class ResearchPipeline:
         provenance = []
 
         for series_id in DEFAULT_SPECS:
-            rows = self.store.provenance_for_window(
-                series_id,
-                episode.start_date,
-                episode.end_date,
-            )
+            if as_of_date is None:
+                rows = self.store.provenance_for_window(
+                    series_id,
+                    episode.start_date,
+                    episode.end_date,
+                )
+
+            else:
+                rows = self.store.as_of(
+                    series_id,
+                    as_of_date,
+                )
+
+                rows = [row for row in rows if (episode.start_date <= row[0] <= episode.end_date)]
 
             for row in rows:
                 if row[1] is None:
@@ -105,10 +134,10 @@ class ResearchPipeline:
                 provenance.append(
                     ProvenanceItem(
                         series_id=series_id,
-                        observation_date=(row[0]),
+                        observation_date=row[0],
                         value=float(row[1]),
-                        realtime_start=(row[2]),
-                        realtime_end=(row[3]),
+                        realtime_start=row[2],
+                        realtime_end=row[3],
                     )
                 )
 

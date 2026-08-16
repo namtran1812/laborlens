@@ -922,6 +922,11 @@ def article(
         "--start",
         help="Episode start date YYYY-MM-DD.",
     ),
+    as_of: str | None = typer.Option(
+        None,
+        "--as-of",
+        help=("Replay using only information available on YYYY-MM-DD."),
+    ),
     window: int = typer.Option(
         24,
         "--window",
@@ -953,10 +958,22 @@ def article(
     pipeline = ResearchPipeline(store)
 
     try:
+        start_date = date.fromisoformat(start)
+
+        as_of_date = date.fromisoformat(as_of) if as_of is not None else None
+
+    except ValueError as exc:
+        raise typer.BadParameter("dates must use YYYY-MM-DD") from exc
+
+    if as_of_date is not None and start_date > as_of_date:
+        raise typer.BadParameter("--start cannot be later than --as-of")
+
+    try:
         research = pipeline.build(
-            start_date=date.fromisoformat(start),
+            start_date=start_date,
             window=window,
             min_confidence=min_confidence,
+            as_of_date=as_of_date,
         )
 
     except ValueError as exc:
@@ -970,6 +987,8 @@ def article(
         raise typer.Exit(code=2)
 
     typer.echo(f"episode={research.episode_id}")
+
+    typer.echo("mode=" + (f"as_of:{as_of_date}" if as_of_date is not None else "latest"))
 
     typer.echo("writer=deterministic")
 
@@ -999,6 +1018,83 @@ def article(
     typer.echo("----- ARTICLE -----")
     typer.echo("")
     typer.echo(draft)
+
+
+@app.command("backfill-vintages")
+def backfill_vintages(
+    series_id: str,
+    from_date: str = typer.Option(
+        ...,
+        "--from",
+        help="Observation start date.",
+    ),
+    to_date: str = typer.Option(
+        ...,
+        "--to",
+        help="Observation end date.",
+    ),
+    vintage_start: str = typer.Option(
+        ...,
+        "--vintage-start",
+    ),
+    vintage_end: str = typer.Option(
+        ...,
+        "--vintage-end",
+    ),
+    step_days: int = typer.Option(
+        30,
+        "--step-days",
+    ),
+) -> None:
+    from datetime import timedelta
+
+    from laborlens.services.vintage_backfill import (
+        VintageBackfillService,
+    )
+
+    if step_days < 1:
+        raise typer.BadParameter("--step-days must be positive")
+
+    try:
+        observation_start = date.fromisoformat(from_date)
+
+        observation_end = date.fromisoformat(to_date)
+
+        current = date.fromisoformat(vintage_start)
+
+        end = date.fromisoformat(vintage_end)
+
+    except ValueError as exc:
+        raise typer.BadParameter("dates must use YYYY-MM-DD") from exc
+
+    vintages = []
+
+    while current <= end:
+        vintages.append(current)
+
+        current += timedelta(days=step_days)
+
+    settings = get_settings()
+
+    service = VintageBackfillService(
+        FredClient(settings.fred_api_key),
+        ClickHouseStore(settings),
+    )
+
+    count = asyncio.run(
+        service.backfill(
+            series_id,
+            vintage_dates=vintages,
+            observation_start=observation_start,
+            observation_end=observation_end,
+        )
+    )
+
+    typer.echo(f"series={series_id.upper()}")
+
+    typer.echo(f"vintages={len(vintages)}")
+
+    typer.echo(f"inserted={count}")
 
 
 if __name__ == "__main__":
