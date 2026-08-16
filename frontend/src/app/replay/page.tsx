@@ -6,6 +6,7 @@ import { DemoNotice } from "@/components/DemoNotice";
 import { MetricCard } from "@/components/MetricCard";
 import { RegimeBadge } from "@/components/RegimeBadge";
 import { ReplayTimeline } from "@/components/ReplayTimeline";
+import { Window } from "@/components/retro/Window";
 import { getMeta, getReplay } from "@/lib/api";
 
 export const metadata: Metadata = {
@@ -85,12 +86,12 @@ export default async function ReplayPage({
           </span>
         </nav>
 
-        <header className="mt-12 border-b border-zinc-800 pb-10">
+        <header className="mt-8 pb-4">
           <div className="text-xs uppercase tracking-[0.25em] text-zinc-500">
             Replay explorer
           </div>
 
-          <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight md:text-6xl">
+          <h1 className="mt-4 max-w-4xl text-3xl font-bold tracking-tight md:text-5xl">
             What did the data say at the time?
           </h1>
 
@@ -102,7 +103,7 @@ export default async function ReplayPage({
         </header>
 
         <form
-          className="my-8 grid gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 md:grid-cols-4"
+          className="retro-window my-5 grid gap-4 p-4 md:grid-cols-4"
           method="GET"
         >
           <label className="text-sm text-zinc-500">
@@ -111,7 +112,7 @@ export default async function ReplayPage({
               name="target"
               type="date"
               defaultValue={target}
-              className="mt-2 w-full rounded-lg border border-zinc-800 bg-black p-3 text-zinc-200"
+              className="retro-input mt-2"
             />
           </label>
 
@@ -121,7 +122,7 @@ export default async function ReplayPage({
               name="from"
               type="date"
               defaultValue={from}
-              className="mt-2 w-full rounded-lg border border-zinc-800 bg-black p-3 text-zinc-200"
+              className="retro-input mt-2"
             />
           </label>
 
@@ -131,14 +132,14 @@ export default async function ReplayPage({
               name="to"
               type="date"
               defaultValue={to}
-              className="mt-2 w-full rounded-lg border border-zinc-800 bg-black p-3 text-zinc-200"
+              className="retro-input mt-2"
             />
           </label>
 
           <div className="flex items-end">
             <button
               type="submit"
-              className="w-full rounded-lg bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-zinc-200"
+              className="retro-button w-full"
             >
               Reconstruct
             </button>
@@ -147,7 +148,7 @@ export default async function ReplayPage({
 
         {reference ? (
           <>
-            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-7">
+            <section className="retro-window p-5">
               <RegimeBadge
                 type={
                   reference.claim_type
@@ -236,7 +237,7 @@ export default async function ReplayPage({
               </div>
 
               <aside className="space-y-4">
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
+                <div className="retro-window p-5">
                   <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                     Detection release
                   </div>
@@ -263,7 +264,7 @@ export default async function ReplayPage({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
+                <div className="retro-window p-5">
                   <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                     Revision stability
                   </div>

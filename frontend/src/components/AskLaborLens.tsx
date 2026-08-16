@@ -76,7 +76,18 @@ export function AskLaborLens({
   }
 
   return (
-    <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-7">
+    <section className="retro-window">
+      <div className="retro-titlebar-dark flex items-center justify-between px-3">
+        <span className="text-[10px] font-bold uppercase tracking-[0.14em]">
+          Ask LaborLens / Research Terminal
+        </span>
+
+        <span className="text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+          grounded
+        </span>
+      </div>
+
+      <div className="p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
@@ -94,7 +105,7 @@ export function AskLaborLens({
           </p>
         </div>
 
-        <span className="rounded-full border border-zinc-800 px-3 py-1 text-xs uppercase tracking-wider text-zinc-500">
+        <span className="retro-inset px-2 py-1 text-[9px] uppercase tracking-wider text-zinc-500">
           evidence-grounded
         </span>
       </div>
@@ -108,7 +119,7 @@ export function AskLaborLens({
               onClick={() =>
                 submitQuestion(item)
               }
-              className="rounded-full border border-zinc-800 px-3 py-2 text-left text-xs text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-200"
+              className="retro-button retro-button-dark text-left text-[10px]"
             >
               {item}
             </button>
@@ -127,14 +138,14 @@ export function AskLaborLens({
               event.target.value,
             )
           }
-          placeholder="Ask about evidence, revisions, detection timing..."
-          className="min-w-0 flex-1 rounded-xl border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-600"
+          placeholder="QUERY> ask about evidence, revisions, detection timing..."
+          className="retro-input min-w-0 flex-1"
         />
 
         <button
           type="submit"
           disabled={loading}
-          className="rounded-xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+          className="retro-button disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading
             ? "Analyzing..."
@@ -149,7 +160,7 @@ export function AskLaborLens({
       ) : null}
 
       {result ? (
-        <div className="mt-6 rounded-2xl border border-zinc-800 bg-black p-6">
+        <div className="retro-inset mt-6 p-5">
           <div className="text-sm leading-7 text-zinc-200">
             {result.answer}
           </div>
@@ -164,7 +175,7 @@ export function AskLaborLens({
                 (source) => (
                   <span
                     key={source}
-                    className="rounded-full border border-zinc-800 px-3 py-1 font-mono text-xs text-zinc-500"
+                    className="border border-zinc-700 bg-[#10110e] px-2 py-1 font-mono text-[10px] text-zinc-500"
                   >
                     {source}
                   </span>
@@ -187,6 +198,7 @@ export function AskLaborLens({
           </div>
         </div>
       ) : null}
+      </div>
     </section>
   );
 }

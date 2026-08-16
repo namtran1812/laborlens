@@ -10,12 +10,30 @@ export function DemoNotice({
   }
 
   return (
-    <div className="rounded-2xl border border-amber-900/50 bg-amber-950/20 p-4 text-sm leading-6 text-amber-200/80">
-      Public demo mode uses a validated frozen
-      historical research snapshot. The full
-      repository supports live FRED/ALFRED
-      ingestion, ClickHouse point-in-time
-      reconstruction, and local AI inference.
+    <div className="retro-window">
+      <div className="retro-titlebar-dark flex items-center justify-between px-3">
+        <span className="text-[10px] uppercase tracking-[0.14em]">
+          system message
+        </span>
+
+        <span className="flex items-center gap-2 text-[9px] uppercase text-zinc-400">
+          <span className="status-light status-amber" />
+          demo snapshot
+        </span>
+      </div>
+
+      <div className="flex gap-3 bg-[#17150e] px-4 py-3 text-xs leading-6 text-[#d2ad58]">
+        <span>&gt;</span>
+
+        <span>
+          Hosted mode uses a validated frozen
+          historical research snapshot. Full
+          FRED/ALFRED ingestion, ClickHouse
+          point-in-time reconstruction, and local
+          AI inference remain available in the
+          repository.
+        </span>
+      </div>
     </div>
   );
 }

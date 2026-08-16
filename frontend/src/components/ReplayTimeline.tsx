@@ -1,4 +1,6 @@
-import type { ReplayState } from "@/lib/api";
+import type {
+  ReplayState,
+} from "@/lib/api";
 
 type Props = {
   states: ReplayState[];
@@ -9,100 +11,78 @@ export function ReplayTimeline({
   states,
   firstDetected,
 }: Props) {
-  const detectedScores = states
-    .filter(
-      (
-        state,
-      ): state is ReplayState & {
-        episode: NonNullable<
-          ReplayState["episode"]
-        >;
-      } => state.episode !== null,
-    )
-    .map((state) =>
-      Math.abs(state.episode.score),
-    );
-
-  const maxScore = Math.max(
-    ...detectedScores,
-    0.001,
-  );
-
   return (
-    <div className="space-y-2">
-      {states.map((state) => {
-        const episode = state.episode;
-        const isFirst =
-          state.as_of_date === firstDetected;
+    <div className="retro-inset overflow-x-auto">
+      <table className="console-table min-w-[620px]">
+        <thead>
+          <tr>
+            <th>Information date</th>
+            <th>State</th>
+            <th>Regime score</th>
+            <th>Confidence</th>
+          </tr>
+        </thead>
 
-        const width = episode
-          ? Math.max(
-              5,
-              (Math.abs(episode.score) /
-                maxScore) *
-                100,
-            )
-          : 0;
+        <tbody>
+          {states.map((state) => {
+            const episode =
+              state.episode;
 
-        return (
-          <div
-            key={state.as_of_date}
-            className={[
-              "grid gap-4 rounded-xl border p-4",
-              "md:grid-cols-[130px_130px_1fr_90px]",
-              isFirst
-                ? "border-amber-700 bg-amber-950/20"
-                : "border-zinc-900 bg-zinc-950",
-            ].join(" ")}
-          >
-            <div className="font-mono text-xs text-zinc-500">
-              {state.as_of_date}
-            </div>
+            const isFirst =
+              state.as_of_date ===
+              firstDetected;
 
-            <div>
-              {state.detected ? (
-                <span
-                  className={[
-                    "text-xs font-medium uppercase tracking-wider",
-                    isFirst
-                      ? "text-amber-300"
-                      : "text-emerald-400",
-                  ].join(" ")}
-                >
-                  {isFirst
-                    ? "first detected"
-                    : "detected"}
-                </span>
-              ) : (
-                <span className="text-xs uppercase tracking-wider text-zinc-600">
-                  not detected
-                </span>
-              )}
-            </div>
+            return (
+              <tr
+                key={state.as_of_date}
+                className={
+                  isFirst
+                    ? "bg-[#261f0d]"
+                    : ""
+                }
+              >
+                <td className="font-mono text-zinc-400">
+                  {state.as_of_date}
+                </td>
 
-            <div className="flex items-center">
-              {episode ? (
-                <div className="h-1.5 w-full rounded-full bg-zinc-900">
-                  <div
-                    className="h-full rounded-full bg-zinc-300"
-                    style={{
-                      width: `${width}%`,
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="h-px w-full bg-zinc-900" />
-              )}
-            </div>
+                <td>
+                  <span
+                    className={[
+                      "font-mono text-[11px] uppercase tracking-[0.08em]",
+                      isFirst
+                        ? "text-[#d2ad58]"
+                        : state.detected
+                          ? "text-[#75b978]"
+                          : "text-zinc-600",
+                    ].join(" ")}
+                  >
+                    {isFirst
+                      ? ">> first detected"
+                      : state.detected
+                        ? "detected"
+                        : "not detected"}
+                  </span>
+                </td>
 
-            <div className="text-right font-mono text-sm text-zinc-400">
-              {episode
-                ? episode.score.toFixed(3)
-                : "—"}
-            </div>
-          </div>
-        );
-      })}
+                <td className="font-mono text-zinc-300">
+                  {episode
+                    ? episode.score.toFixed(3)
+                    : "---"}
+                </td>
+
+                <td className="font-mono text-zinc-500">
+                  {episode
+                    ? `${(
+                        episode.confidence *
+                        100
+                      ).toFixed(1)}%`
+                    : "---"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

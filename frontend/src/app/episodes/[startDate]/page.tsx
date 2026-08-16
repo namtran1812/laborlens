@@ -6,6 +6,7 @@ import { DemoNotice } from "@/components/DemoNotice";
 import { EvidenceBars } from "@/components/EvidenceBars";
 import { MetricCard } from "@/components/MetricCard";
 import { RegimeBadge } from "@/components/RegimeBadge";
+import { Window } from "@/components/retro/Window";
 import {
   getArticle,
   getEpisode,
@@ -55,7 +56,13 @@ export default async function EpisodePage({
           </Link>
         </div>
 
-        <header className="mt-8 border-b border-zinc-800 pb-10">
+        <Window
+          title={`Episode Inspector : ${startDate}`}
+          status="validated"
+          className="mt-5"
+          darkTitle
+        >
+          <header className="py-3">
           <RegimeBadge
             type={episode.claim_type}
           />
@@ -69,9 +76,14 @@ export default async function EpisodePage({
             {" → "}
             {episode.end_date}
           </p>
-        </header>
+          </header>
+        </Window>
 
-        <section className="grid gap-4 py-10 md:grid-cols-4">
+        <Window
+          title="Research Metrics"
+          className="mt-5"
+        >
+          <section className="grid gap-3 md:grid-cols-4">
           <MetricCard
             label="Regime score"
             value={episode.score.toFixed(
@@ -104,11 +116,15 @@ export default async function EpisodePage({
               100
             ).toFixed(1)}%`}
           />
-        </section>
+          </section>
+        </Window>
 
-        <section className="grid gap-8 lg:grid-cols-[1.3fr_0.7fr]">
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-7">
-            <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+        <section className="mt-5 grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+          <Window
+            title="Evidence Monitor"
+            status="supporting"
+          >
+            <div className="retro-label">
               Supporting evidence
             </div>
 
@@ -131,10 +147,13 @@ export default async function EpisodePage({
                 }
               />
             </div>
-          </div>
+          </Window>
 
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-7">
-            <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+          <Window
+            title="Research Integrity"
+            status="verified"
+          >
+            <div className="retro-label">
               Research integrity
             </div>
 
@@ -184,10 +203,14 @@ export default async function EpisodePage({
                 </div>
               </div>
             </div>
-          </div>
+          </Window>
         </section>
 
-        <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-7">
+        <Window
+          title="Grounded Research Brief"
+          status="deterministic"
+          className="mt-5"
+        >
           <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
             Grounded research brief
           </div>
@@ -195,9 +218,9 @@ export default async function EpisodePage({
           <div className="mt-6 whitespace-pre-wrap text-sm leading-7 text-zinc-300">
             {article.article}
           </div>
-        </section>
+        </Window>
 
-        <div className="mt-8">
+        <div className="mt-5">
           <AskLaborLens
             startDate={startDate}
             suggestedQuestions={
@@ -209,14 +232,14 @@ export default async function EpisodePage({
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href={`/replay?target=${startDate}&from=2024-06-01&to=2024-09-01`}
-            className="rounded-xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-zinc-200"
+            className="retro-button"
           >
             Replay this episode
           </Link>
 
           <Link
             href="/methodology"
-            className="rounded-xl border border-zinc-700 px-5 py-3 text-sm text-zinc-300 transition hover:bg-zinc-900"
+            className="retro-button retro-button-dark"
           >
             Read methodology
           </Link>
