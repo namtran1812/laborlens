@@ -1,166 +1,95 @@
 # LaborLens
 
-**Revision-aware, point-in-time labor-market intelligence.**
+**Revision-aware, point-in-time labor-market research with grounded AI.**
 
-[Live Demo](https://laborlens-eosin.vercel.app) ·
-[API](https://laborlens.onrender.com/docs) ·
-[Replay Explorer](https://laborlens-eosin.vercel.app/replay) ·
-[Methodology](https://laborlens-eosin.vercel.app/methodology)
+LaborLens is a research system for studying labor-market regime changes under the information constraints that actually existed at the time.
 
-LaborLens is an autonomous economic-research system for discovering, validating, replaying, and explaining labor-market regime changes.
+Its central question is:
 
-The central problem it addresses is subtle:
+> **Would an economic conclusion have been detectable using only information that was actually available at that point in history?**
 
-> **Would an economic conclusion have been detectable using only the information that was actually available at the time?**
+Historical economic datasets are revised. Looking backward with today's values can make a signal appear earlier, stronger, or more stable than it would have appeared to a researcher operating in real time.
 
-Most historical analysis accidentally uses revised data. A model evaluated against today's version of a labor-market series can therefore appear to identify a signal earlier, more confidently, or more consistently than a researcher operating in real time actually could have.
+LaborLens addresses this by reconstructing historical information states from release vintages, detecting multivariate labor-market regimes, validating evidence, adding geographically specific QCEW context, replaying conclusions through successive information states, and exposing the resulting research through deterministic and grounded language interfaces.
 
-LaborLens reconstructs historical information states from release vintages, detects multivariate labor-market regimes, groups them into research episodes, validates supporting and opposing evidence, tracks how conclusions evolve under later revisions, and exposes the resulting research through a public API, interactive frontend, deterministic article generator, and grounded AI interface.
+The language model is deliberately downstream of the research engine: it explains validated research objects rather than independently deciding what happened in the labor market.
 
 ---
 
-## Live Product
+## Core Idea
 
-**Frontend**
-
-https://laborlens-eosin.vercel.app
-
-**Public API**
-
-https://laborlens.onrender.com
-
-**Interactive API documentation**
-
-https://laborlens.onrender.com/docs
-
-The hosted version runs in a zero-cost demo configuration backed by validated research snapshots. The complete repository contains the ingestion, vintage storage, point-in-time reconstruction, research, replay, backtesting, writing, and local AI implementation.
-
-Because the API is hosted on a free instance, the first request after inactivity may take additional time while the service wakes.
-
----
-
-## Why LaborLens?
-
-Suppose a historical dataset currently shows:
-
-```text
-May 2024 → weakening
-June 2024 → contraction
-July 2024 → contraction
-```
-
-It is tempting to conclude:
-
-> "The labor market entered contraction in June 2024."
-
-But that does not answer when a researcher could actually have known this.
-
-The June observation may have been released weeks later. Other indicators may not yet have been published. Initial estimates may have differed from their revised values. A signal visible in today's dataset may not have existed in the information set available in June.
-
-LaborLens therefore separates two concepts:
+Economic time series have at least two relevant notions of time:
 
 ```text
 observation date
-    ≠
+      ≠
 information availability date
 ```
 
-Instead of only asking:
+A payroll observation describing June may be published in July and revised again later.
+
+A conventional historical analysis often asks:
 
 ```text
 What does the historical dataset say now?
 ```
 
-LaborLens also asks:
+LaborLens instead asks:
 
 ```text
-What could the system have concluded
-using only data released by date t?
+What could a researcher have concluded
+using only information available by date t?
 ```
 
 That distinction drives the architecture of the project.
 
 ---
 
-## Example Result
+## Example: June 2024
 
-For the June 2024 labor-market contraction episode, LaborLens reconstructs the following final research state:
+For a detected June 2024 labor-market contraction episode, the research engine produced a final regime score of approximately:
 
 ```text
-Episode:
-2024-06-01 → 2024-06-01
-
-Type:
-broad_contraction
-
-Final regime score:
 -0.461
-
-Confidence:
-84.3%
-
-Skeptic verdict:
-supported
 ```
 
-The strongest standardized supporting contributions were:
+with confidence around:
 
-| Series | Signal | Standardized contribution |
+```text
+84.3%
+```
+
+The strongest standardized supporting contributions included:
+
+| Series | Indicator | Standardized contribution |
 |---|---|---:|
 | PAYEMS | Total nonfarm payroll employment | -0.850 |
 | UNRATE | Unemployment rate | -0.659 |
 | ICSA | Initial unemployment claims | -0.622 |
 | JTSHIR | Hires rate | -0.326 |
 
-These values are standardized directional contributions to the regime signal, **not percentage changes in the underlying economic series**.
+These are **standardized directional contributions**, not percentage changes in employment or the underlying series.
 
----
-
-## The More Interesting Question: When Was It Knowable?
-
-A conventional backtest can identify the June 2024 episode using the final historical dataset.
-
-LaborLens's release-aware replay asks when the same conclusion first became detectable in real time.
-
-For this episode:
+The more interesting result comes from replaying the episode through historical information states.
 
 ```text
-target observation:
-2024-06-01
+target observation     2024-06-01
+previous state         2024-07-25
+first detected         2024-07-30
+detection latency      59 days
+release attribution    JTSHIR, JTSJOL
 
-previous information state:
-2024-07-25
+initial score          -0.446
+final score            -0.461
+absolute revision      0.0147
 
-first detected:
-2024-07-30
+survival after detection
+                       100%
 
-detection latency:
-59 days
-
-release attribution:
-JTSHIR, JTSJOL
-
-initial score:
--0.446
-
-final score:
--0.461
-
-absolute score revision:
-0.0147
-
-survival rate after detection:
-100%
-
-claim-type flips:
-0
+claim-type flips       0
 ```
 
-The episode was **not detectable through the July 25 information state**.
-
-When additional JOLTS information became available on July 30, the reconstructed information set crossed LaborLens's detection criteria.
-
-This lets the system distinguish:
+The system therefore distinguishes:
 
 ```text
 when an economic condition occurred
@@ -169,7 +98,7 @@ when an economic condition occurred
 from:
 
 ```text
-when sufficient evidence existed to detect it
+when enough evidence existed to detect it
 ```
 
 ---
@@ -177,110 +106,122 @@ when sufficient evidence existed to detect it
 # Architecture
 
 ```text
-                         ┌─────────────────────┐
-                         │      FRED / ALFRED  │
-                         │ releases + vintages │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │     Ingestion       │
-                         │ vintage backfilling │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │     ClickHouse      │
-                         │ observations        │
-                         │ release vintages    │
-                         │ provenance          │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │ Point-in-Time Reconstruction  │
-                    │       data known as of t      │
-                    └───────────────┬───────────────┘
-                                    │
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │     Research Engine           │
-                    │                               │
-                    │ features → regimes → claims   │
-                    │ → episodes → evidence         │
-                    │ → skeptic validation          │
-                    └───────────────┬───────────────┘
-                                    │
-                    ┌───────────────┼────────────────┐
-                    │               │                │
-                    ▼               ▼                ▼
-             ┌────────────┐  ┌────────────┐  ┌─────────────┐
-             │   Replay   │  │ Backtesting│  │   Writer /  │
-             │   Engine   │  │ + revision │  │ Grounded AI │
-             └──────┬─────┘  │ analysis   │  └──────┬──────┘
-                    │        └──────┬─────┘         │
-                    └───────────────┼───────────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │      FastAPI        │
-                         │  public research API│
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │      Next.js        │
-                         │ research workspace  │
-                         └─────────────────────┘
+                 FRED / ALFRED
+              observations + vintages
+                       |
+                       v
+              Vintage-Aware Ingestion
+                       |
+                       v
+                   ClickHouse
+             observations / releases
+                  / provenance
+                       |
+                       v
+            Point-in-Time Reconstruction
+                data known as of t
+                       |
+                       v
+                 Research Engine
+                       |
+        +--------------+--------------+
+        |              |              |
+        v              v              v
+     Regimes          QCEW          Evidence
+     Episodes        Context        + Skeptic
+        |              |              |
+        +--------------+--------------+
+                       |
+                       v
+                 Research Bundle
+                       |
+          +------------+------------+
+          |            |            |
+          v            v            v
+       Replay      Backtesting    Grounded
+       Engine       + Revision     Answers
+                     Analysis
+                       |
+                       v
+               CLI / Minimal API
 ```
 
----
-
-# Research Pipeline
-
-LaborLens treats an economic conclusion as a research object rather than immediately turning an anomaly into prose.
-
-The pipeline is approximately:
+The architecture intentionally separates:
 
 ```text
-raw observations
-      ↓
-point-in-time reconstruction
-      ↓
-feature engineering
-      ↓
-direction normalization
-      ↓
-rolling standardization
-      ↓
-smoothed regime score
-      ↓
-candidate claims
-      ↓
-episode clustering
-      ↓
-supporting evidence
-      ↓
-counter-evidence
-      ↓
-skeptic validation
-      ↓
-historical context
-      ↓
-research bundle
-      ↓
-article / grounded answer
+data
+  |
+  v
+research inference
+  |
+  v
+validation
+  |
+  v
+language generation
 ```
 
-This separation matters because the writer does not decide what the evidence means.
+The writer does not decide what the evidence means.
 
 The research engine does.
 
 ---
 
-## 1. Vintage-Aware Data
+# Research Pipeline
 
-LaborLens stores observations together with their release vintages.
+A typical research path is:
+
+```text
+raw observations
+      |
+      v
+point-in-time reconstruction
+      |
+      v
+feature engineering
+      |
+      v
+direction normalization
+      |
+      v
+rolling standardization
+      |
+      v
+multivariate regime score
+      |
+      v
+candidate claims
+      |
+      v
+episode construction
+      |
+      v
+supporting + opposing evidence
+      |
+      v
+skeptic validation
+      |
+      v
+QCEW cross-sectional context
+      |
+      v
+historical context
+      |
+      v
+provenance
+      |
+      v
+research bundle
+      |
+      v
+deterministic / grounded answer
+```
+
+---
+
+## 1. Vintage-Aware Economic Data
+
+LaborLens stores economic observations together with release-vintage information.
 
 Conceptually:
 
@@ -291,27 +232,27 @@ vintage_date
 value
 ```
 
-This allows queries of the form:
+This permits questions such as:
 
 ```text
-What value for PAYEMS would have been
-known on 2024-07-01?
+What PAYEMS value was available
+to a researcher on 2024-07-01?
 ```
 
-rather than simply:
+rather than only:
 
 ```text
-What is the current historical PAYEMS value
-for that observation?
+What value does the current
+historical dataset report?
 ```
 
-That makes point-in-time reconstruction possible.
+This is the foundation for point-in-time reconstruction.
 
 ---
 
-## 2. Feature Engineering
+## 2. Feature Engineering and Regime Detection
 
-For each labor-market series, LaborLens derives features such as:
+LaborLens derives features such as:
 
 ```text
 level
@@ -322,67 +263,52 @@ rolling variance
 rolling z-score
 ```
 
-Signals are direction-normalized so that economically different series can contribute consistently to a composite regime.
+Signals are direction-normalized before aggregation.
 
-For example, an increase in unemployment and a decrease in hiring can both represent weakening even though their raw numerical directions differ.
+For example, increasing unemployment and decreasing hiring can both indicate weakening even though their numerical directions differ.
+
+The system then searches for coordinated movement across multiple labor-market indicators rather than treating any single series as sufficient evidence.
+
+```text
+PAYEMS -----+
+UNRATE -----|
+ICSA -------+---> normalized signals
+JTSHIR -----|
+JTSJOL -----+
+                  |
+                  v
+              regime score
+                  |
+                  v
+            candidate claim
+```
 
 ---
 
-## 3. Regime Detection
+## 3. Episode Construction
 
-Standardized signals are aggregated into a composite labor-market regime score.
+Adjacent candidate states can be grouped into research episodes.
 
-The system looks for coordinated movements across indicators rather than relying on a single series.
-
-Conceptually:
+Instead of treating:
 
 ```text
-PAYEMS ─────┐
-UNRATE ─────┤
-ICSA ───────┼──► standardized directional signals
-JTSHIR ─────┤
-JTSJOL ─────┘
-                 │
-                 ▼
-            regime score
-                 │
-                 ▼
-          candidate claim
+May     contraction
+June    contraction
+July    contraction
+August  contraction
 ```
 
-Candidate claims include states such as broad contraction when sufficiently strong cross-series evidence is present.
+as four unrelated observations, LaborLens can represent them as a single evolving episode.
+
+Each episode records structured information including its temporal range, representative score, confidence, claim type, evidence, and provenance.
 
 ---
 
-## 4. Episode Construction
+## 4. Evidence and Skeptic Validation
 
-Adjacent candidate claims are clustered into episodes.
+Research conclusions are converted into structured evidence bundles before natural-language generation.
 
-Instead of emitting:
-
-```text
-May → contraction
-June → contraction
-July → contraction
-August → contraction
-```
-
-the system can represent the sequence as a research episode:
-
-```text
-May → August
-broad_contraction
-```
-
-Each episode records its time range, representative score, confidence, claim type, and headline.
-
----
-
-## 5. Evidence and Counter-Evidence
-
-Every episode is converted into a structured evidence bundle.
-
-The engine identifies:
+The engine preserves:
 
 ```text
 supporting indicators
@@ -392,61 +318,79 @@ historical comparisons
 provenance
 ```
 
-This prevents the narrative layer from selecting evidence after deciding what story it wants to tell.
+Candidate research then passes through deterministic skeptic logic.
+
+This design prevents the narrative layer from first choosing a story and then selecting evidence that supports it.
 
 ---
 
-## 6. Deterministic Skeptic
+# QCEW Cross-Sectional Research
 
-Before publication, candidate research is passed through a skeptic stage.
+LaborLens extends the macro time-series analysis with BLS Quarterly Census of Employment and Wages context.
 
-The skeptic evaluates whether the evidence actually supports the claim and produces a structured verdict.
+This provides geographically specific industry evidence such as:
 
-Example:
-
-```json
-{
-  "verdict": "supported",
-  "score": 0.8374
-}
+```text
+local employment
+local year-over-year growth
+national year-over-year growth
+relative growth gap
+location quotient
+industry strength
 ```
 
-The goal is not to make an LLM responsible for factual validation.
+The QCEW pipeline includes:
 
-Validation remains part of the deterministic research pipeline.
+```text
+QCEW ingestion
+      |
+      v
+dimension resolution
+      |
+      v
+release availability
+      |
+      v
+local / national comparison
+      |
+      v
+candidate industry claims
+      |
+      v
+QCEW skeptic
+      |
+      v
+cross-sectional research context
+```
+
+Release availability matters here as well.
+
+For a historical `as_of` query, LaborLens selects a QCEW quarter that was actually available by that information date rather than leaking later quarterly releases into the analysis.
+
+This lets macro regime evidence and industry-level context share the same point-in-time principle.
 
 ---
 
 # Release-Aware Replay
 
-Replay is one of the central features of LaborLens.
-
-Given:
-
-```text
-target episode
-start information date
-end information date
-```
-
-the system repeatedly reconstructs the data available at each historical information state and reruns the research pipeline.
+Replay repeatedly reconstructs the information available at historical dates and reruns the research process.
 
 For example:
 
 ```text
-2024-07-03     not detected
-2024-07-05     not detected
-2024-07-11     not detected
-2024-07-18     not detected
-2024-07-25     not detected
-2024-07-30     FIRST DETECTED
-2024-08-01     detected
-2024-08-02     detected
+2024-07-03    not detected
+2024-07-05    not detected
+2024-07-11    not detected
+2024-07-18    not detected
+2024-07-25    not detected
+2024-07-30    FIRST DETECTED
+2024-08-01    detected
+2024-08-02    detected
 ...
-2024-09-01     detected
+2024-09-01    detected
 ```
 
-The replay engine measures:
+The replay system can measure:
 
 ```text
 first detection date
@@ -463,44 +407,40 @@ start-date drift
 end-date drift
 ```
 
-This provides a direct view of **research stability under information arrival and revision**.
+The result is an empirical view of **research stability under information arrival and revision**.
 
 ---
 
 # Anti-Survivorship Backtesting
 
-There is another problem with evaluating only today's historical dataset.
+Final revised datasets create another evaluation problem.
 
-Suppose a real-time information state produced a contraction signal, but later revisions caused that signal to disappear.
+Suppose a signal appeared in real time but disappeared after later revisions.
 
-A conventional final-state backtest never sees it.
+A backtest performed only against the final historical dataset cannot observe that signal.
 
-That creates survivorship bias in the evaluation itself.
+LaborLens therefore tracks real-time episode families in addition to final-state episodes.
 
-LaborLens therefore tracks **real-time episode families** in addition to final-state episodes.
-
-For a historical experiment from 2019 through September 2024 with a 24-month window:
+In one historical experiment covering 2019 through September 2024 with a 24-month window:
 
 ```text
-realtime episode families:       3
-persistent families:             2
-disappeared families:            1
+real-time episode families       3
+persistent families              2
+disappeared families             1
 
-persistence rate:             66.7%
-revision disappearance rate:  33.3%
+persistence rate              66.7%
+revision disappearance rate   33.3%
 ```
 
-The `revision_disappearance_rate` measures the fraction of real-time episode families that appeared historically but were absent from the final revised state.
+The revision disappearance rate is intentionally **not** called a false-discovery rate.
 
-It is deliberately **not** called a false-discovery rate: disappearance under revision does not prove that the original economic inference was statistically false.
+A signal disappearing after data revisions does not prove that the original real-time inference was statistically false.
 
 ---
 
-## Window-Sensitivity Experiment
+## Window Sensitivity
 
-LaborLens also exposes how regime definitions affect stability.
-
-Using the same 2019–2024 evaluation horizon:
+A historical window experiment produced:
 
 | Window | Final Episodes | Real-Time Families | Persistence | Revision Disappearance | Median Detection Latency |
 |---:|---:|---:|---:|---:|---:|
@@ -508,321 +448,331 @@ Using the same 2019–2024 evaluation horizon:
 | 24 months | 2 | 3 | 66.7% | 33.3% | 62.5 days |
 | 36 months | 3 | 3 | 100.0% | 0.0% | 61 days |
 
-The shorter window produces more candidate episodes but substantially more revision-sensitive signals.
+The shorter window generated more candidate episodes but also more revision-sensitive signals in this experiment.
 
-The longer window is much more stable in this experiment.
-
-These results are descriptive for the evaluated historical period; they are not evidence that a 36-month window is universally optimal.
+These results are descriptive for the evaluated period and do not establish that one window is universally optimal.
 
 ---
 
-# Grounded AI
+# Grounded Research Assistant
 
-LaborLens includes an AI interface, but the language model is deliberately placed **after** the research pipeline.
-
-The intended architecture is:
+LaborLens includes a natural-language research interface, but its architecture is intentionally different from a generic data chatbot.
 
 ```text
 User question
-      │
-      ▼
-Structured research state
-      │
-      ├── episode
-      ├── evidence
-      ├── skeptic verdict
-      ├── replay metrics
-      ├── revision history
-      └── provenance
-      │
-      ▼
-Grounded response layer
-      │
-      ▼
-Natural-language explanation
+      |
+      v
+Intent + safety routing
+      |
+      v
+Required research context
+      |
+      v
+Research pipeline
+      |
+      v
+Structured research bundle
+      |
+      +-- episode
+      +-- macro evidence
+      +-- QCEW context
+      +-- skeptic verdicts
+      +-- historical state
+      +-- provenance
+      |
+      v
+Grounded answer layer
 ```
 
-The model is not asked to independently infer what happened in the labor market.
+The model is not given raw economic data and asked to invent an interpretation.
 
-Instead, it explains research objects that have already been constructed and validated by LaborLens.
-
-Example question:
+Instead:
 
 ```text
-Why was this episode first detected on July 30?
+research engine
+      |
+      v
+validated context
+      |
+      v
+language model
 ```
-
-Example answer:
-
-> The June 2024 contraction was not detectable through the July 25 information state. On July 30, new JOLTS information for JTSHIR and JTSJOL entered the available information set. With those releases included, the episode crossed LaborLens's detection criteria with an initial regime score of -0.446 and confidence of 84.2%.
-
-The response is grounded in replay states and release attribution rather than unconstrained model knowledge.
 
 ---
 
-## Hosted AI vs. Local AI
+## Intent Routing
 
-The public deployment is designed to remain free.
-
-Therefore the hosted demo uses **validated deterministic research answers** for supported questions.
-
-Example API response:
-
-```json
-{
-  "mode": "grounded-demo",
-  "model": "validated-research-snapshot",
-  "sources": [
-    "Replay state: 2024-07-25",
-    "Replay state: 2024-07-30",
-    "Release attribution: JTSHIR, JTSJOL"
-  ]
-}
-```
-
-For local research, LaborLens also contains an Ollama-backed writer path, allowing local model inference without making the public application dependent on a paid model API.
-
-This preserves the same architectural principle:
+Research questions are routed across intents including:
 
 ```text
-research engine → validated context → language model
+causal attribution
+episode summary
+macro evidence
+industry weakness
+industry strength
+industry context
+point-in-time analysis
+methodology
+general research
 ```
 
-rather than:
+The routing system combines learned semantic classification with deterministic structural rules where mistakes would have larger consequences.
+
+Geographic requirements are also planned before running the research pipeline so QCEW-backed questions cannot silently execute without the necessary geographic context.
+
+---
+
+# Causal Safety
+
+LaborLens is a descriptive research system, not a causal inference engine.
+
+Questions such as:
 
 ```text
-raw data → language model → trust the answer
+Did hurricanes cause roofing employment to fall?
 ```
 
----
+must therefore not be silently converted into causal conclusions merely because correlated industry or macro evidence exists.
 
-# Public Product
+A dedicated causal classifier acts as a safety boundary before ordinary research-intent routing.
 
-LaborLens is exposed as both an API and an interactive research workspace.
-
-## Overview
-
-The home page surfaces detected labor-market episodes and provides entry points into the underlying research.
-
-Users can move from:
+Cross-corpus evaluation of the calibrated causal classifier achieved:
 
 ```text
-episode
-  ↓
-evidence
-  ↓
-historical context
-  ↓
-replay
-  ↓
-grounded explanation
+Holdout V1
+recall       1.000
+precision    0.909
+
+Holdout V2
+recall       1.000
+precision    1.000
+
+Holdout V3
+recall       1.000
+precision    1.000
+
+dangerous misroute rate
+             0.000 across V1-V3
 ```
 
-rather than only reading a generated article.
+The goal is asymmetric: incorrectly refusing to make a causal claim is preferable to presenting descriptive co-movement as established causation.
 
 ---
 
-## Episode Workspace
+# Production Routing Benchmark
 
-Each episode exposes:
+The frozen production holdout contains 99 questions separate from the router-development corpora.
 
-- claim type
-- start and end dates
-- regime score
-- confidence
-- skeptic verdict
-- supporting evidence
-- counter-evidence
-- historical percentile
-- provenance
-- generated research article
-- grounded questions
-
-Example:
-
-https://laborlens-eosin.vercel.app/episodes/2024-06-01
-
----
-
-## Replay Explorer
-
-The replay interface visualizes the episode across historical information states.
-
-https://laborlens-eosin.vercel.app/replay
-
-It makes the difference between occurrence and detectability visible:
+Measured performance:
 
 ```text
-NOT DETECTED
-NOT DETECTED
-NOT DETECTED
-...
-FIRST DETECTED
-DETECTED
-DETECTED
+cases                    99
+
+intent accuracy          0.980
+area accuracy            1.000
+routing accuracy         1.000
 ```
 
-Users can inspect when a conclusion appeared and how its score changed as additional releases and revisions became available.
+Safety subset:
+
+```text
+safety cases             15
+causal safety recall     1.000
+dangerous misroute rate  0.000
+```
+
+General-research subset:
+
+```text
+cases                    11
+accuracy                 1.000
+```
+
+Router latency:
+
+```text
+p50    10.11 ms
+p95    19.66 ms
+p99    33.15 ms
+```
+
+The two intent errors were:
+
+```text
+episode_summary -> methodology
+episode_summary -> point_in_time
+```
+
+Both preserved deterministic research execution, so neither produced an unsafe or ungrounded route.
 
 ---
 
-## Methodology
+# Grounding Benchmark
 
-The public methodology page explains the research assumptions and system architecture.
+LaborLens evaluates the final answer layer end to end rather than evaluating only intent classification.
 
-https://laborlens-eosin.vercel.app/methodology
+Current grounding benchmark:
 
-This is intentionally part of the product: economic conclusions should be inspectable rather than presented as opaque AI output.
+```text
+cases                              30
+
+request success rate             1.000
+answer guard pass rate           1.000
+unsupported causal assertion     0.000
+numeric misrepresentation rate   0.000
+provenance coverage rate         1.000
+```
+
+Answer modes:
+
+```text
+deterministic research    22
+local AI                   8
+```
+
+Only questions requiring synthesis are sent through the language model.
+
+In this benchmark:
+
+```text
+AI generation rate        0.267
+```
+
+Most supported research questions can therefore be answered deterministically from structured research state, while the model is reserved for questions where natural-language synthesis adds value.
+
+Local AI inference is substantially more expensive than routing:
+
+```text
+end-to-end
+p50     234.57 ms
+p95    5545.11 ms
+p99   13873.10 ms
+
+AI-only generation
+p50    4717.54 ms
+p95   13873.10 ms
+```
+
+This reinforces the design choice to avoid invoking the model unnecessarily.
 
 ---
 
-# API
+# Answer Guard
 
-The backend is implemented with FastAPI.
+Generated answers pass through a grounding guard designed to catch unsupported output before it reaches the caller.
 
-Interactive documentation:
+The evaluation explicitly checks for failure modes including:
 
-https://laborlens.onrender.com/docs
+```text
+unsupported causal assertions
+numeric misrepresentation
+missing provenance
+ungrounded generation
+```
 
-Core endpoints include:
+If local model generation fails, the system can fall back to deterministic research output rather than returning an unconstrained answer.
+
+---
+
+# Learned Routing Experiments
+
+The repository retains evaluation scripts used to compare routing approaches.
+
+Experiments include:
+
+```text
+logistic regression
+linear SVM
+cosine k-NN
+two-stage routing
+dedicated causal classification
+non-causal multiclass routing
+```
+
+Across the non-causal router evaluation, mean performance was:
+
+```text
+accuracy    0.877
+macro F1    0.881
+```
+
+These experiments motivated the final hybrid architecture rather than selecting a classifier based only on aggregate accuracy.
+
+---
+
+# Minimal API
+
+LaborLens retains a small FastAPI boundary for programmatic research queries.
+
+The API is intentionally not treated as a separate product layer.
+
+Core routes:
 
 ```text
 GET  /health
-GET  /meta
-GET  /episodes
-GET  /episodes/{start_date}
-GET  /article/{start_date}
-GET  /replay
 POST /ask
 ```
 
----
-
-## Health
+Example request:
 
 ```bash
-curl https://laborlens.onrender.com/health
-```
-
-Example:
-
-```json
-{
-  "status": "ok",
-  "service": "laborlens",
-  "mode": "demo"
-}
-```
-
----
-
-## Episodes
-
-```bash
-curl \
-  "https://laborlens.onrender.com/episodes"
-```
-
-Example:
-
-```json
-{
-  "count": 1,
-  "episodes": [
-    {
-      "episode_id": "broad_contraction-2024-06-01-2024-06-01",
-      "claim_type": "broad_contraction",
-      "start_date": "2024-06-01",
-      "end_date": "2024-06-01",
-      "duration_months": 1,
-      "peak_confidence": 0.8430936516010492,
-      "score": -0.4606394461100772,
-      "headline": "Labor-market indicators are weakening broadly"
-    }
-  ]
-}
-```
-
----
-
-## Episode Research Bundle
-
-```bash
-curl \
-  "https://laborlens.onrender.com/episodes/2024-06-01"
-```
-
-This returns the episode together with its skeptic result, supporting and counter-evidence, historical context, and provenance metadata.
-
----
-
-## Replay
-
-```bash
-curl \
-  "https://laborlens.onrender.com/replay?from=2024-06-01&to=2024-09-01&target=2024-06-01&schedule=releases"
-```
-
-The response contains every reconstructed information state plus summary metrics.
-
----
-
-## Ask LaborLens
-
-```bash
-curl \
-  -X POST \
+curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
     "question": "Which indicators contributed most?",
     "start_date": "2024-06-01"
   }' \
-  https://laborlens.onrender.com/ask
+  http://localhost:8000/ask
 ```
 
-Example:
+The response contains:
 
-```json
-{
-  "answer": "The strongest standardized supporting contribution was PAYEMS at -0.85, followed by UNRATE at -0.66, ICSA at -0.62, and JTSHIR at -0.33. These are standardized directional contributions, not percentage changes in the underlying economic series.",
-  "mode": "grounded-demo",
-  "model": "validated-research-snapshot",
-  "sources": [
-    "PAYEMS contribution: -0.850",
-    "UNRATE contribution: -0.659",
-    "ICSA contribution: -0.622",
-    "JTSHIR contribution: -0.326"
-  ]
-}
+```text
+answer
+mode
+model
+sources
+caveat
 ```
+
+The API is an interface to the research engine, not the core of the project.
 
 ---
 
 # CLI
 
-LaborLens can also be used directly from the command line.
+Most research functionality is available directly through the `laborlens` CLI.
 
-## Ingest a Series
+Commands include:
+
+```text
+ingest
+vintage
+as-of
+analyze
+compare
+regime
+claims
+episodes
+review
+bundle
+article
+backfill-vintages
+replay-eval
+backtest
+ingest-qcew
+compare-qcew
+qcew-claims
+```
+
+## Ingest economic data
 
 ```bash
 laborlens ingest UNRATE \
   --from 2024-01-01
 ```
 
----
-
-## Analyze a Series
-
-```bash
-laborlens analyze UNRATE \
-  --latest \
-  --window 12 \
-  --threshold 2.0
-```
-
----
-
-## Backfill Historical Vintages
+## Backfill vintages
 
 ```bash
 laborlens backfill-vintages PAYEMS \
@@ -833,9 +783,7 @@ laborlens backfill-vintages PAYEMS \
   --batch-size 100
 ```
 
----
-
-## Run a Revision-Aware Backtest
+## Run revision-aware backtesting
 
 ```bash
 laborlens backtest \
@@ -847,7 +795,13 @@ laborlens backtest \
   --show-families
 ```
 
-The backtest reports both final-state evaluation and anti-survivorship metrics.
+## Work with QCEW
+
+```bash
+laborlens ingest-qcew --help
+laborlens compare-qcew --help
+laborlens qcew-claims --help
+```
 
 ---
 
@@ -857,447 +811,193 @@ The backtest reports both final-state evaluation and anti-survivorship metrics.
 
 - Python 3.11+
 - Docker
-- Node.js
-- npm
-- a FRED API key for live ingestion
+- FRED API key for live FRED/ALFRED ingestion
+- Ollama only if local language-model synthesis is desired
 
-Clone the repository:
+## Installation
 
 ```bash
-git clone https://github.com/namtran1812/laborlens.git
+git clone <repository-url>
 cd laborlens
-```
 
-Create a Python environment:
-
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
+
+pip install -e .
 ```
 
-Install LaborLens:
+Create an environment file:
 
 ```bash
-pip install -e ".[dev]"
+cp .env.example .env
 ```
 
----
-
-## Environment
-
-Create `.env` locally.
-
-```env
-FRED_API_KEY=your_key_here
-CLICKHOUSE_HOST=localhost
-CLICKHOUSE_PORT=8123
-CLICKHOUSE_DATABASE=laborlens
-CLICKHOUSE_USER=default
-CLICKHOUSE_PASSWORD=laborlens
-```
-
-`.env` is ignored by Git and should never be committed.
-
----
-
-## Start ClickHouse
-
-```bash
-docker compose up -d
-```
-
-Check the service:
-
-```bash
-docker compose ps
-```
-
-The initialization migration creates the core tables:
+Configure at minimum:
 
 ```text
-series
-observations
-ingestion_runs
+FRED_API_KEY=...
 ```
 
----
-
-## Run the API
-
-Activate the environment:
-
-```bash
-source .venv/bin/activate
-```
-
-Then run the FastAPI application using the project's configured entry point.
-
-The local API is available at:
+For local AI synthesis:
 
 ```text
-http://localhost:8000
+LABORLENS_LLM_PROVIDER=ollama
+LABORLENS_MODEL=qwen3:8b
+OLLAMA_HOST=http://localhost:11434
 ```
 
-and its OpenAPI documentation at:
-
-```text
-http://localhost:8000/docs
-```
-
----
-
-## Run the Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Then open:
-
-```text
-http://localhost:3000
-```
-
-Configure the frontend's API base URL for the environment in which it is running.
+Start the required storage infrastructure according to the repository's Docker configuration, then apply the ClickHouse migrations.
 
 ---
 
 # Testing
 
-Backend:
+Run the complete test suite:
 
 ```bash
-ruff format --check .
 ruff check .
 pytest -q
+git diff --check
 ```
 
-Current suite:
+Current repository state:
 
 ```text
-74 passed
+121 passed
 ```
 
-Frontend:
+The project also contains dedicated research evaluations and frozen holdouts rather than relying solely on unit tests.
+
+Examples:
 
 ```bash
-cd frontend
-npm run lint
-npm run build
-```
-
-The production build covers:
-
-```text
-/
- /episodes/[startDate]
- /methodology
- /replay
- /robots.txt
- /sitemap.xml
+PYTHONPATH=. python scripts/benchmark_holdout_v4.py
+PYTHONPATH=. python scripts/benchmark_grounding.py
+PYTHONPATH=. python scripts/evaluate_causal_classifier.py
+PYTHONPATH=. python scripts/evaluate_noncausal_router.py
 ```
 
 ---
 
-# Continuous Integration
+# Research Principles
 
-GitHub Actions validates both sides of the application on pushes and pull requests.
+LaborLens is built around several constraints.
 
-### Backend
+### 1. Point-in-time correctness
 
-```text
-install
-  ↓
-ruff format --check
-  ↓
-ruff check
-  ↓
-pytest
-```
+Historical analysis must use information available at the requested information date.
 
-### Frontend
+### 2. No revision leakage
 
-```text
-npm ci
-  ↓
-eslint
-  ↓
-next build
-```
+Later revisions should not silently improve historical conclusions.
 
-This keeps the public research product, API, and frontend build reproducible from the repository.
+### 3. Release-aware cross-sectional context
 
----
+QCEW evidence must also respect publication availability.
 
-# Project Structure
+### 4. Evidence before narrative
 
-```text
-laborlens/
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-│
-├── frontend/
-│   └── src/
-│       ├── app/
-│       │   ├── episodes/
-│       │   ├── methodology/
-│       │   ├── replay/
-│       │   ├── error.tsx
-│       │   ├── loading.tsx
-│       │   ├── not-found.tsx
-│       │   ├── robots.ts
-│       │   └── sitemap.ts
-│       │
-│       ├── components/
-│       └── lib/
-│
-├── laborlens/
-│   ├── analysis/
-│   │   ├── divergence.py
-│   │   ├── features.py
-│   │   └── regime.py
-│   │
-│   ├── api/
-│   │   ├── app.py
-│   │   ├── demo.py
-│   │   └── run.py
-│   │
-│   ├── data/
-│   │   └── fred.py
-│   │
-│   ├── evaluation/
-│   │   ├── backtest.py
-│   │   └── replay.py
-│   │
-│   ├── research/
-│   │   ├── claims.py
-│   │   ├── episodes.py
-│   │   ├── evidence.py
-│   │   ├── research_bundle.py
-│   │   ├── series_catalog.py
-│   │   └── skeptic.py
-│   │
-│   ├── services/
-│   │   ├── ingestion.py
-│   │   ├── research_pipeline.py
-│   │   └── vintage_backfill.py
-│   │
-│   ├── storage/
-│   │   └── clickhouse.py
-│   │
-│   └── writer/
-│       ├── deterministic_writer.py
-│       ├── ollama_writer.py
-│       ├── prompt.py
-│       └── verifier.py
-│
-├── migrations/
-├── tests/
-├── docker-compose.yml
-├── pyproject.toml
-└── README.md
-```
+Research objects are constructed before natural-language explanation.
 
----
+### 5. Descriptive evidence is not causal evidence
 
-# Design Principles
+Correlated labor-market signals do not establish why an event occurred.
 
-### 1. Respect the information set
+### 6. Preserve counter-evidence
 
-Historical analysis should not silently use information unavailable at the time being evaluated.
+Opposing signals are part of the research state rather than discarded because they complicate a narrative.
 
-### 2. Separate detection from explanation
+### 7. Provenance is part of the result
 
-Statistical logic determines the research state. Natural-language systems explain it.
+A conclusion without traceable evidence is incomplete.
 
-### 3. Preserve counter-evidence
+### 8. Evaluate the system, not just the model
 
-A useful research system should make contradictory evidence visible rather than optimize only for a compelling narrative.
-
-### 4. Measure revisions explicitly
-
-Changing historical data is part of the problem, not preprocessing noise to be discarded.
-
-### 5. Evaluate disappearing conclusions
-
-Signals that vanish after revisions are still part of the historical behavior of a real-time research system.
-
-### 6. Keep claims inspectable
-
-Episodes expose evidence, replay history, skeptic judgments, and provenance so conclusions can be audited.
+Routing accuracy alone is insufficient. LaborLens separately evaluates causal safety, grounding, provenance, numerical fidelity, replay stability, revision sensitivity, and end-to-end behavior.
 
 ---
 
 # What LaborLens Is Not
 
-LaborLens is not intended to establish causal economic relationships.
+LaborLens is not:
 
-A detected episode represents statistical co-movement across selected labor-market indicators under the project's regime methodology.
+- a causal inference engine;
+- a forecasting model claiming to predict recessions;
+- a generic RAG chatbot over economic documents;
+- a dashboard built around current revised data;
+- an LLM that independently interprets raw macroeconomic series;
+- a production trading signal.
 
-It does **not** by itself establish:
-
-- causation
-- a particular policy mechanism
-- recession classification
-- trading profitability
-- equivalence between historically similar episodes
-- that a revised-away real-time signal was necessarily "wrong"
-
-The system is designed for **revision-aware descriptive economic research and information-state analysis**.
+It is a **revision-aware research system for reconstructing, testing, and explaining what labor-market evidence supported at a particular information state**.
 
 ---
 
-# Research Questions
+# Current Status
 
-LaborLens currently provides infrastructure for studying questions including:
-
-1. **How early can multivariate labor-market regime changes be detected using only information available in real time?**
-2. **How much do later revisions change the strength, timing, duration, or classification of those signals?**
-3. **How often do apparently meaningful real-time episodes disappear from the final revised historical record?**
-4. **Which data releases cause a candidate regime to cross a detection threshold?**
-5. **How does rolling-window choice affect detection latency and revision stability?**
-6. **Can a grounded language interface explain point-in-time economic research without delegating the underlying inference to the language model?**
-
-These are intentionally separated from claims of causal inference or forecasting performance.
-
----
-
-# Technology
-
-**Research / Backend**
-
-- Python
-- FastAPI
-- Pydantic
-- HTTPX
-- FRED / ALFRED
-- ClickHouse
-- Typer
-
-**Evaluation**
-
-- point-in-time replay
-- release-aware evaluation
-- episode-family tracking
-- revision analysis
-- anti-survivorship backtesting
-
-**AI**
-
-- deterministic grounded demo responses
-- local Ollama integration
-- evidence-constrained prompting
-- numeric verification
-
-**Frontend**
-
-- Next.js
-- React
-- TypeScript
-- Tailwind CSS
-
-**Infrastructure**
-
-- Docker Compose
-- GitHub Actions
-- Render
-- Vercel
-
----
-
-# Deployment
-
-The public architecture intentionally separates the product layer from the full research environment.
+The core research system currently includes:
 
 ```text
-                 Public deployment
-
-Browser
-   │
-   ▼
-Vercel
-Next.js frontend
-   │
-   ▼
-Render
-FastAPI demo service
-   │
-   ▼
-Validated research snapshot
+FRED / ALFRED ingestion
+historical vintage storage
+point-in-time reconstruction
+feature engineering
+multivariate regime detection
+claim construction
+episode construction
+evidence extraction
+skeptic validation
+QCEW ingestion and comparison
+release-aware QCEW context
+research bundles
+release-aware replay
+revision analysis
+anti-survivorship backtesting
+window sensitivity analysis
+learned intent routing
+causal safety classification
+grounded deterministic answers
+optional local-LLM synthesis
+answer grounding guards
+frozen routing holdouts
+grounding benchmarks
+CLI research workflows
+minimal FastAPI interface
 ```
 
-The full local research architecture additionally supports:
-
-```text
-FRED / ALFRED
-      │
-      ▼
-ClickHouse
-      │
-      ▼
-point-in-time research engine
-      │
-      ├── replay
-      ├── backtesting
-      ├── deterministic writer
-      └── local AI
-```
-
-This allows the public application to remain accessible without requiring paid database or model infrastructure while keeping the complete research implementation reproducible in the repository.
+The project intentionally does not require a frontend or public demo application. Its primary artifact is the research engine and the reproducible evaluation around it.
 
 ---
 
-# Status
+# Why This Matters
 
-**LaborLens V1**
+Macroeconomic research is often evaluated with information that was not actually available when the event occurred.
 
-- [x] FRED ingestion
-- [x] ALFRED/vintage-aware ingestion
-- [x] ClickHouse storage
-- [x] point-in-time reconstruction
-- [x] feature engineering
-- [x] multivariate regime detection
-- [x] claim generation
-- [x] episode clustering
-- [x] evidence extraction
-- [x] counter-evidence
-- [x] skeptic validation
-- [x] historical context
-- [x] provenance
-- [x] deterministic research writing
-- [x] local AI writer
-- [x] release-aware replay
-- [x] release attribution
-- [x] revision metrics
-- [x] anti-survivorship backtesting
-- [x] FastAPI research API
-- [x] grounded question answering
-- [x] public demo mode
-- [x] Next.js research workspace
-- [x] episode explorer
-- [x] replay visualization
-- [x] methodology interface
-- [x] production error/loading states
-- [x] public frontend deployment
-- [x] public backend deployment
-- [x] backend CI
-- [x] frontend CI
+That can introduce a subtle form of look-ahead bias.
+
+LaborLens treats the historical information set itself as part of the experiment.
+
+Instead of asking only:
+
+> What happened?
+
+it asks:
+
+> What evidence existed at the time?
+
+> When did that evidence become sufficient?
+
+> Which releases changed the conclusion?
+
+> Did the conclusion survive later revisions?
+
+> Which local industries strengthened or contradicted the aggregate signal?
+
+> Which parts of the conclusion are descriptive, and which would require causal evidence that the system does not have?
+
+That turns a historical labor-market analysis into a reproducible **point-in-time research problem** rather than a retrospective narrative.
 
 ---
 
-## Author
+## License
 
-**Nam Tran**
-
-Built as an exploration of economic-data revisions, real-time information constraints, autonomous research systems, and grounded AI.
-
----
-
-## Disclaimer
-
-LaborLens is a research and educational project.
-
-Its outputs are not financial, investment, employment, or policy advice.
+See the repository license for usage terms.
