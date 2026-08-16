@@ -24,6 +24,7 @@ dev = [
 
 [project.scripts]
 laborlens = "laborlens.cli:app"
+laborlens-api = "laborlens.api.run:main"
 
 [build-system]
 requires = ["hatchling"]
