@@ -29,64 +29,74 @@ export const metadata: Metadata = {
   },
   description:
     "Revision-aware labor-market research using FRED/ALFRED vintages, point-in-time reconstruction, release-aware replay, evidence validation, and grounded AI explanations.",
-  applicationName: "LaborLens",
-  keywords: [
-    "labor market",
-    "economic research",
-    "FRED",
-    "ALFRED",
-    "point-in-time data",
-    "economic revisions",
-    "FastAPI",
-    "ClickHouse",
-    "grounded AI",
-  ],
-  authors: [
-    {
-      name: "Nam Tran",
-    },
-  ],
-  creator: "Nam Tran",
-  openGraph: {
-    type: "website",
-    url: "/",
-    title:
-      "LaborLens — Point-in-Time Labor-Market Intelligence",
-    description:
-      "Reconstruct what economic data actually showed at historical information dates and measure how conclusions changed after revisions.",
-    siteName: "LaborLens",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title:
-      "LaborLens — Point-in-Time Labor-Market Intelligence",
-    description:
-      "Revision-aware economic research with release replay and grounded AI interpretation.",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
 };
 
 export default function RootLayout({
   children,
 }: LayoutProps<"/">) {
+  const mode =
+    process.env.NEXT_PUBLIC_LABORLENS_MODE ??
+    "demo";
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
-        <AppNav
-          mode={
-            process.env.NEXT_PUBLIC_LABORLENS_MODE ??
-            "demo"
-          }
-        />
+      <body>
+        <div className="desktop-stage">
+          <div className="app-window">
+            <div className="window-titlebar">
+              <div className="flex items-center gap-3">
+                <span className="window-icon" />
 
-        <div className="min-h-[calc(100vh-86px)] flex-1 bg-[#090a09]">
-          {children}
+                <span className="window-title">
+                  LaborLens Research Workstation
+                </span>
+              </div>
+
+              <div className="window-controls">
+                <span className="window-control">
+                  ─
+                </span>
+
+                <span className="window-control">
+                  □
+                </span>
+
+                <span className="window-control">
+                  ×
+                </span>
+              </div>
+            </div>
+
+            <AppNav mode={mode} />
+
+            <div className="app-workspace">
+              {children}
+            </div>
+
+            <footer className="window-statusbar">
+              <div className="flex items-center gap-5">
+                <span className="flex items-center gap-2">
+                  <span className="status-light status-green" />
+                  API ONLINE
+                </span>
+
+                <span>
+                  MODE:{mode.toUpperCase()}
+                </span>
+
+                <span className="hidden sm:inline">
+                  ENGINE:POINT-IN-TIME
+                </span>
+              </div>
+
+              <div className="hidden md:block">
+                FRED/ALFRED · REVISION-AWARE
+              </div>
+            </footer>
+          </div>
         </div>
       </body>
     </html>
