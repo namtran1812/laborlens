@@ -1275,5 +1275,191 @@ def replay_eval(
     typer.echo(f"  end_drift_months={result.end_drift_months}")
 
 
+@app.command("backtest")
+def backtest(
+    from_date: str = typer.Option(
+        ...,
+        "--from",
+        help="Beginning of evaluation range.",
+    ),
+    to_date: str = typer.Option(
+        ...,
+        "--to",
+        help="Final information state.",
+    ),
+    window: int = typer.Option(
+        24,
+        "--window",
+    ),
+    min_confidence: float = typer.Option(
+        0.55,
+        "--min-confidence",
+    ),
+    show_episodes: bool = typer.Option(
+        False,
+        "--show-episodes",
+    ),
+    show_families: bool = typer.Option(
+        False,
+        "--show-families",
+    ),
+) -> None:
+    from laborlens.evaluation.backtest import (
+        run_backtest,
+    )
+    from laborlens.services.research_pipeline import (
+        ResearchPipeline,
+    )
+
+    try:
+        start_date = date.fromisoformat(from_date)
+        end_date = date.fromisoformat(to_date)
+
+    except ValueError as exc:
+        raise typer.BadParameter("dates must use YYYY-MM-DD") from exc
+
+    if start_date > end_date:
+        raise typer.BadParameter("--from cannot be later than --to")
+
+    settings = get_settings()
+
+    store = ClickHouseStore(settings)
+
+    try:
+        result = run_backtest(
+            store,
+            ResearchPipeline(store),
+            start_date=start_date,
+            end_date=end_date,
+            window=window,
+            min_confidence=min_confidence,
+        )
+
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    if show_episodes:
+        typer.echo("final_state_episodes:")
+
+        for item in result.episodes:
+            replay = item.replay
+
+            typer.echo(
+                f"{item.target_date}\t"
+                f"type={item.claim_type}\t"
+                f"final_period="
+                f"{item.final_start_date}"
+                f"..{item.final_end_date}\t"
+                f"first_detected="
+                f"{replay.first_detected_as_of}\t"
+                f"latency="
+                f"{replay.detection_latency_days}\t"
+                f"survival="
+                + (f"{replay.survival_rate:.1%}" if replay.survival_rate is not None else "n/a")
+                + "\t"
+                f"score_revision="
+                f"{replay.absolute_score_revision}"
+            )
+
+        typer.echo("")
+
+    if show_families:
+        typer.echo("realtime_episode_families:")
+
+        for family in result.families:
+            typer.echo(
+                f"family={family.family_id}\t"
+                f"first_seen="
+                f"{family.first_seen_as_of}\t"
+                f"last_seen="
+                f"{family.last_seen_as_of}\t"
+                f"first_period="
+                f"{family.first_episode.start_date}"
+                f"..{family.first_episode.end_date}\t"
+                f"final_period="
+                f"{family.final_episode.start_date}"
+                f"..{family.final_episode.end_date}\t"
+                f"type="
+                f"{family.first_episode.claim_type}"
+                f"->{family.final_episode.claim_type}\t"
+                f"persistent="
+                f"{family.persistent_to_final}\t"
+                f"type_flipped="
+                f"{family.type_flipped}\t"
+                f"observations="
+                f"{family.observations}"
+            )
+
+        typer.echo("")
+
+    typer.echo("final_state_backtest:")
+
+    typer.echo(f"  episodes_evaluated={result.episodes_evaluated}")
+
+    typer.echo(f"  episodes_detected={result.episodes_detected}")
+
+    typer.echo(f"  episodes_never_detected={result.episodes_never_detected}")
+
+    if result.detection_rate is None:
+        typer.echo("  detection_rate=n/a")
+    else:
+        typer.echo(f"  detection_rate={result.detection_rate:.1%}")
+
+    typer.echo(f"  median_detection_latency_days={result.median_detection_latency_days}")
+
+    typer.echo(f"  p90_detection_latency_days={result.p90_detection_latency_days}")
+
+    if result.mean_survival_rate is None:
+        typer.echo("  mean_survival_rate=n/a")
+    else:
+        typer.echo(f"  mean_survival_rate={result.mean_survival_rate:.1%}")
+
+    if result.claim_type_flip_rate is None:
+        typer.echo("  claim_type_flip_rate=n/a")
+    else:
+        typer.echo(f"  claim_type_flip_rate={result.claim_type_flip_rate:.1%}")
+
+    typer.echo(f"  median_absolute_score_revision={result.median_absolute_score_revision}")
+
+    typer.echo(f"  p90_absolute_score_revision={result.p90_absolute_score_revision}")
+
+    typer.echo(f"  mean_start_drift_months={result.mean_start_drift_months}")
+
+    typer.echo(f"  mean_end_drift_months={result.mean_end_drift_months}")
+
+    typer.echo("")
+
+    typer.echo("anti_survivorship:")
+
+    typer.echo(f"  realtime_episode_families={result.realtime_episode_families}")
+
+    typer.echo(f"  persistent_families={result.persistent_families}")
+
+    typer.echo(f"  disappeared_families={result.disappeared_families}")
+
+    typer.echo(f"  final_only_families={result.final_only_families}")
+
+    if result.persistence_rate is None:
+        typer.echo("  persistence_rate=n/a")
+    else:
+        typer.echo(f"  persistence_rate={result.persistence_rate:.1%}")
+
+    if result.revision_disappearance_rate is None:
+        typer.echo("  revision_disappearance_rate=n/a")
+    else:
+        typer.echo(f"  revision_disappearance_rate={result.revision_disappearance_rate:.1%}")
+
+    typer.echo(f"  type_flipped_families={result.type_flipped_families}")
+
+    if result.type_flip_family_rate is None:
+        typer.echo("  type_flip_family_rate=n/a")
+    else:
+        typer.echo(f"  type_flip_family_rate={result.type_flip_family_rate:.1%}")
+
+    typer.echo(f"  mean_family_start_drift_months={result.mean_family_start_drift_months}")
+
+    typer.echo(f"  mean_family_end_drift_months={result.mean_family_end_drift_months}")
+
+
 if __name__ == "__main__":
     app()
